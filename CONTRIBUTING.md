@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping improve the PayHub PHP SDK.
+Thanks for helping improve the barkapay PHP SDK.
 
 ## Development setup
 
@@ -12,38 +12,41 @@ composer install
 
 ```bash
 composer test     # PHPUnit
-composer stan     # PHPStan (level max)
+composer stan     # PHPStan (level max) on src, tests and examples
 composer cs       # php-cs-fixer (dry-run) — run `composer cs-fix` to apply
+composer audit    # known vulnerabilities in the (dev) dependencies
 ```
 
-CI runs all three on PHP 8.1, 8.2 and 8.3.
+CI runs them on PHP 8.1 to 8.5.
 
 ## Scope & conventions
 
-- The SDK mirrors the PayHub OpenAPI spec — keep the public surface in sync with
-  the API. Prefer small, typed additions.
-- No runtime dependencies: stick to `ext-curl` + `ext-json` so the SDK stays safe
-  to embed inside WordPress / WooCommerce.
+- The SDK mirrors the public API: keep the surface in sync with it, and identical in spirit to
+  the Node.js and Python SDKs (same resource and method names).
+- No runtime dependencies: stick to `ext-curl` + `ext-json` so the SDK stays safe to embed
+  inside WordPress / WooCommerce.
+- Backward compatibility: new constructor parameters go last with a default; DTOs must keep
+  tolerating unknown fields and unknown enum values.
+- Never weaken the safety rules: no option to disable TLS verification, no redirect following,
+  no automatic replay of a request that moves money, no credential in a message or a dump.
+- Add or update tests with every behaviour change; never call the live API from tests (use the
+  injectable `HttpClientInterface`). Every PHP sample in the README is linted by the test suite.
 - Open an issue first for larger changes so we can align on the design.
-- Add or update tests with every behaviour change; never call the live API from
-  tests (use the injectable `HttpClientInterface`).
 
 ## Releasing (Packagist)
 
-Packagist serves `barkapay/payhub-php` straight from Git tags — there is no
-publish workflow to run. One-time setup by a maintainer:
+Packagist serves `barkapay/payhub-php` straight from Git tags — there is no publish workflow to
+run. To cut a release:
 
-1. Submit the repo once on https://packagist.org (`Submit` → the GitHub URL).
-2. Enable the GitHub → Packagist webhook (Packagist shows the exact URL + token
-   under the package's *Settings*; or install the Packagist GitHub App on the
-   BarkaPay org). This auto-updates Packagist on every push/tag.
-
-To cut a release: bump the version in `CHANGELOG.md`, commit, then
+1. set `PayHub\Client::VERSION` and add the version section to `CHANGELOG.md` (a test checks
+   that the two agree);
+2. merge to `main` and wait for a green CI;
+3. tag and push:
 
 ```bash
-git tag vX.Y.Z
-git push --follow-tags
+git tag -a vX.Y.Z -m "vX.Y.Z"
+git push origin vX.Y.Z
 ```
 
-Packagist picks up the new tag within seconds. The package follows SemVer; tags
-must be `vX.Y.Z` (Composer also reads the matching `X.Y.Z` constraint).
+Packagist picks up the new tag through the GitHub webhook. The package follows SemVer; tags
+must be `vX.Y.Z`.
