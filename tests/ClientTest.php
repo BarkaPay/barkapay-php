@@ -190,19 +190,19 @@ final class ClientTest extends TestCase
     {
         $http = new FakeHttpClient([
             FakeHttpClient::ok(
-                ['payments' => [['public_id' => 'p1', 'status' => 'EXPIRED', 'order_id' => 'ORDER 1/A']]],
+                ['payments' => [['public_id' => 'p1', 'status' => 'EXPIRED', 'order_id' => 'ORDER 1#A?x']]],
                 200,
                 ['count' => 1, 'lookup_field' => 'order_id'],
             ),
         ]);
 
-        $payment = $this->client($http)->payments->get('ORDER 1/A');
+        $payment = $this->client($http)->payments->get('ORDER 1#A?x');
 
         self::assertSame('p1', $payment->publicId);
         self::assertSame(PaymentStatus::Expired, $payment->status);
         self::assertTrue($payment->isFinal());
         // The identifier is percent-encoded: it stays ONE path segment.
-        self::assertSame('https://hub.barkapay.com/bf/v1/payments/ORDER%201%2FA', $http->last()->url);
+        self::assertSame('https://hub.barkapay.com/bf/v1/payments/ORDER%201%23A%3Fx', $http->last()->url);
     }
 
     public function testGetThrowsNotFoundWhenTheApiReturnsNoRow(): void

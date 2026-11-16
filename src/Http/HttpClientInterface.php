@@ -14,6 +14,8 @@ use PayHub\Exception\NetworkException;
  * Implementations MUST:
  *  - verify the server's TLS certificate and host name;
  *  - NOT follow redirects (the request carries the API key in `Authorization`);
+ *  - keep that header out of logs and traces: log `Request::redactedHeaders()`
+ *    and mark the `$request` parameter `#[\SensitiveParameter]`;
  *  - return every HTTP response as a {@see Response}, whatever its status;
  *  - throw {@see NetworkException} when no response was received, flagging
  *    `connectionFailure: true` only when the request provably never left

@@ -51,17 +51,18 @@ final class CurlClient implements HttpClientInterface
         float $connectTimeout = self::DEFAULT_CONNECT_TIMEOUT,
         private readonly ?string $caBundle = null,
     ) {
-        // 0 means "wait forever" for curl: never let a call hang a worker.
-        $this->timeout = $timeout > 0 ? $timeout : self::DEFAULT_TIMEOUT;
-        $this->connectTimeout = $connectTimeout > 0 ? min($connectTimeout, $this->timeout) : self::DEFAULT_CONNECT_TIMEOUT;
+        $this->timeout = self::seconds($timeout, self::DEFAULT_TIMEOUT);
+        $this->connectTimeout = min(self::seconds($connectTimeout, self::DEFAULT_CONNECT_TIMEOUT), $this->timeout);
 
         if ($caBundle !== null && !is_file($caBundle)) {
             throw new ConfigurationException('The CA bundle file does not exist or is not readable.');
         }
     }
 
-    public function send(Request $request): Response
-    {
+    public function send(
+        #[\SensitiveParameter]
+        Request $request,
+    ): Response {
         if (!\function_exists('curl_init') || !\function_exists('curl_exec')) {
             throw new NetworkException(
                 'The curl functions are not available on this host (extension missing or disabled).',
@@ -98,8 +99,18 @@ final class CurlClient implements HttpClientInterface
 
         // curl_setopt_array() stops at the first option it cannot set: never
         // send a request with only part of the configuration applied.
-        if (!curl_setopt_array($handle, $options)) {
-            throw new NetworkException('Unable to configure curl: ' . curl_error($handle), 0, null, true);
+        try {
+            $configured = curl_setopt_array($handle, $options);
+            $reason = $configured ? '' : curl_error($handle);
+        } catch (\Throwable $e) {
+            // Deliberately not chained: the trace of an error raised inside
+            // curl_setopt_array() holds the options, Authorization header included.
+            $configured = false;
+            $reason = $e::class;
+        }
+
+        if (!$configured) {
+            throw new NetworkException(rtrim('Unable to configure curl: ' . $reason, ': '), 0, null, true);
         }
 
         $body = curl_exec($handle);
@@ -124,6 +135,20 @@ final class CurlClient implements HttpClientInterface
     }
 
     /**
+     * A timeout curl can honour: finite, at least 1 ms, at most 10 minutes.
+     * Anything else falls back to the default — in particular 0, which curl
+     * reads as "wait forever", and values that overflow once in milliseconds.
+     */
+    private static function seconds(float $value, float $default): float
+    {
+        if (!is_finite($value) || $value <= 0) {
+            return $default;
+        }
+
+        return max(0.001, min($value, 600.0));
+    }
+
+    /**
      * The curl options for a request (header callback aside). Exposed so the
      * security-critical ones can be asserted in tests.
      *
@@ -131,8 +156,10 @@ final class CurlClient implements HttpClientInterface
      *
      * @return array<int, mixed>
      */
-    public function options(Request $request): array
-    {
+    public function options(
+        #[\SensitiveParameter]
+        Request $request,
+    ): array {
         $headers = [];
         foreach ($request->headers as $name => $value) {
             $headers[] = $name . ': ' . $value;

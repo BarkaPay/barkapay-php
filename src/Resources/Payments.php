@@ -56,7 +56,7 @@ final class Payments
      */
     public function create(array $params, ?string $country = null): Payment
     {
-        return Payment::fromArray($this->unwrap($this->api->request('POST', ['payments'], $country, $params)));
+        return Payment::fromArray($this->unwrap($this->api->request('POST', ['payments'], $country, $params, expect: 'payment')));
     }
 
     /**
@@ -76,7 +76,7 @@ final class Payments
     public function list(array $filters = [], ?string $country = null): PaymentCollection
     {
         return PaymentCollection::fromEnvelope(
-            $this->api->request('GET', ['payments'], $country, null, $filters),
+            $this->api->request('GET', ['payments'], $country, null, $filters, 'payments'),
         );
     }
 
@@ -87,8 +87,9 @@ final class Payments
      * `order.unique: true`; otherwise the first match is returned — use
      * `list(['order_id' => …])` to get them all.
      *
-     * An identifier shaped like a UUID is always looked up as a public_id: if
-     * your own order ids are UUIDs, find them with `list(['order_id' => …])`.
+     * An identifier shaped like a UUID is always looked up as a public_id, and
+     * one containing `/` cannot be looked up at all (it is refused): find such
+     * order ids with `list(['order_id' => …])`.
      *
      * @throws ApiException           on any error returned by the API — {@see NotFoundException} when nothing matches
      * @throws NetworkException       when no response was received
@@ -96,7 +97,7 @@ final class Payments
      */
     public function get(string $id, ?string $country = null): Payment
     {
-        $env = $this->api->request('GET', ['payments', $id], $country);
+        $env = $this->api->request('GET', ['payments', $id], $country, expect: 'payments');
         $rows = Coerce::rows(Coerce::arr($env, 'data') ?? [], 'payments');
 
         if ($rows === []) {
@@ -126,6 +127,7 @@ final class Payments
             ['payments', $publicId, 'confirm-otp'],
             $country,
             ['otp' => $otp],
+            expect: 'payment',
         );
 
         return Payment::fromArray($this->unwrap($env));

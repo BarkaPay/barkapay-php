@@ -6,6 +6,7 @@ namespace PayHub\Exception;
 
 use PayHub\DTO\Payment;
 use PayHub\DTO\Transfer;
+use PayHub\Util\Headers;
 
 /**
  * Base class for every error returned by the API (any response with the
@@ -117,18 +118,7 @@ class ApiException extends \RuntimeException implements PayHubException
      */
     public function getRetryAfter(): ?int
     {
-        $value = $this->getResponseHeader('retry-after');
-        if ($value === null || $value === '') {
-            return null;
-        }
-
-        if (ctype_digit($value)) {
-            return (int) $value;
-        }
-
-        $date = strtotime($value);
-
-        return $date === false ? null : max(0, $date - time());
+        return Headers::retryAfter($this->responseHeaders);
     }
 
     /**
@@ -156,8 +146,8 @@ class ApiException extends \RuntimeException implements PayHubException
     /**
      * Build the most specific exception for an error response.
      *
-     * @param array<string, mixed>  $envelope        the decoded body (empty when it was not a JSON object)
-     * @param array<string, string> $responseHeaders
+     * @param array<string, mixed>                $envelope        the decoded body (empty when it was not a JSON object)
+     * @param array<string, string|list<string>> $responseHeaders
      */
     public static function fromEnvelope(
         int $httpStatus,
@@ -176,10 +166,7 @@ class ApiException extends \RuntimeException implements PayHubException
         /** @var array<string, mixed> $data */
         $data = \is_array($envelope['data'] ?? null) ? $envelope['data'] : [];
 
-        $headers = [];
-        foreach ($responseHeaders as $name => $value) {
-            $headers[strtolower((string) $name)] = $value;
-        }
+        $headers = Headers::normalize($responseHeaders);
         $requestId ??= $headers['x-request-id'] ?? null;
 
         if ($responseBody !== null && \strlen($responseBody) > self::MAX_BODY_LENGTH) {

@@ -28,7 +28,7 @@ final class Balance
      */
     public function get(?string $country = null): BalanceDto
     {
-        $env = $this->api->request('GET', ['balance'], $country);
+        $env = $this->api->request('GET', ['balance'], $country, expect: '');
 
         return BalanceDto::fromArray(Coerce::arr($env, 'data') ?? []);
     }

@@ -275,6 +275,12 @@ final class ErrorMappingTest extends TestCase
         yield 'json list' => ['[1,2,3]'];
         yield 'json scalar' => ['"ok"'];
         yield 'truncated json' => ['{"status":"success","data":{'];
+        // JSON objects that are not the success envelope.
+        yield 'empty object' => ['{}'];
+        yield 'foreign object' => ['{"foo":"bar"}'];
+        yield 'unknown status' => ['{"status":"pending","data":{"payment":{"public_id":"p"}}}'];
+        yield 'upper-case status' => ['{"status":"SUCCESS","data":{"payment":{"public_id":"p"}}}'];
+        yield 'no status' => ['{"message":"queued","data":{"payment":{"public_id":"p"}}}'];
     }
 
     #[DataProvider('notAnEnvelope')]
@@ -287,7 +293,113 @@ final class ErrorMappingTest extends TestCase
             self::fail('Expected ApiException.');
         } catch (ApiException $e) {
             self::assertSame(200, $e->getHttpStatus());
-            self::assertStringContainsString('not a JSON envelope', $e->getMessage());
+            self::assertSame(ApiException::class, $e::class);
+            self::assertNotNull($e->getRequestId());
+            self::assertSame($body, $e->getResponseBody());
+        }
+    }
+
+    public function testA204OrA202WithoutTheEnvelopeIsAnError(): void
+    {
+        foreach ([new Response(204, ''), new Response(202, '{"message":"queued"}')] as $response) {
+            try {
+                $this->clientReturning($response)->transfers->create(['operator' => 'ORANGE']);
+                self::fail('Expected ApiException.');
+            } catch (ApiException $e) {
+                self::assertSame($response->statusCode, $e->getHttpStatus());
+            }
+        }
+    }
+
+    /**
+     * A success envelope that does not carry the resource the call is about
+     * must never be turned into an empty object — least of all an empty list,
+     * which the caller would read as "this operation does not exist".
+     *
+     * @return iterable<string, array{\Closure(Client): mixed, array<string, mixed>, string}>
+     */
+    public static function successWithoutTheResource(): iterable
+    {
+        yield 'create payment' => [fn (Client $c) => $c->payments->create(['operator' => 'ORANGE']), [], 'data.payment'];
+        yield 'create payment, wrong key' => [fn (Client $c) => $c->payments->create([]), ['transfer' => ['public_id' => 't']], 'data.payment'];
+        yield 'create payment, scalar' => [fn (Client $c) => $c->payments->create([]), ['payment' => 'p-1'], 'data.payment'];
+        yield 'confirm otp' => [fn (Client $c) => $c->payments->confirmOtp('p', '123456'), [], 'data.payment'];
+        yield 'list payments' => [fn (Client $c) => $c->payments->list(['order_id' => 'O-1']), [], 'data.payments'];
+        yield 'get payment' => [fn (Client $c) => $c->payments->get('O-1'), [], 'data.payments'];
+        yield 'create transfer' => [fn (Client $c) => $c->transfers->create(['operator' => 'ORANGE']), [], 'data.transfer'];
+        yield 'list transfers' => [fn (Client $c) => $c->transfers->list(['order_id' => 'O-1']), [], 'data.transfers'];
+        yield 'get transfer' => [fn (Client $c) => $c->transfers->get('O-1'), [], 'data.transfers'];
+        yield 'create link' => [fn (Client $c) => $c->paymentLinks->create(['title' => 'x']), [], 'data.payment_link'];
+        yield 'get link' => [fn (Client $c) => $c->paymentLinks->get('PL-1'), [], 'data.payment_link'];
+        yield 'pause link' => [fn (Client $c) => $c->paymentLinks->pause('PL-1'), [], 'data.payment_link'];
+        yield 'list links' => [fn (Client $c) => $c->paymentLinks->list(), [], 'data.payment_links'];
+        yield 'link payments' => [fn (Client $c) => $c->paymentLinks->listPayments('PL-1'), ['payment_link' => []], 'data.payments'];
+    }
+
+    /**
+     * @param \Closure(Client): mixed $call
+     * @param array<string, mixed>    $data
+     */
+    #[DataProvider('successWithoutTheResource')]
+    public function testASuccessEnvelopeWithoutTheExpectedResourceIsAnError(\Closure $call, array $data, string $missing): void
+    {
+        $client = $this->clientReturning(FakeHttpClient::ok($data));
+
+        try {
+            $call($client);
+            self::fail('Expected ApiException.');
+        } catch (ApiException $e) {
+            self::assertSame(ApiException::class, $e::class);
+            self::assertSame(200, $e->getHttpStatus());
+            self::assertStringContainsString('`' . $missing . '`', $e->getMessage());
+            self::assertSame('9b1c7e44-5f2a-4c8d-9a3e-1f6b0d2a7c45', $e->getRequestId());
+        }
+    }
+
+    public function testAnEnvelopeWithoutDataIsAnErrorForReadsThatReturnData(): void
+    {
+        $noData = FakeHttpClient::json(200, ['status' => 'success', 'code' => 'success', 'message' => 'OK']);
+
+        foreach ([
+            fn (Client $c) => $c->ping(),
+            fn (Client $c) => $c->me(),
+            fn (Client $c) => $c->balance->get(),
+            fn (Client $c) => $c->operators->info(),
+            fn (Client $c) => $c->operators->availability(),
+        ] as $call) {
+            try {
+                $call($this->clientReturning($noData));
+                self::fail('Expected ApiException.');
+            } catch (ApiException $e) {
+                self::assertStringContainsString('`data`', $e->getMessage());
+            }
+        }
+
+        // …but not for the one call that returns nothing.
+        $this->clientReturning($noData)->payments->resendOtp('p');
+        $this->addToAssertionCount(1);
+    }
+
+    public function testHeaderValuesGivenAsListsByACustomTransportAreTolerated(): void
+    {
+        // A PSR-7 adapter hands over name => list of values.
+        /** @var array<string, list<string>> $psr7 */
+        $psr7 = ['X-Request-Id' => ['rid-list'], 'X-RateLimit-Limit' => ['30'], 'X-RateLimit-Remaining' => ['7'], 'Vary' => ['Accept', 'Origin']];
+        $ok = new Response(200, '{"status":"success","code":"success","data":{"version":"2.0.0"}}', $psr7);
+
+        $client = $this->clientReturning($ok);
+        self::assertSame('2.0.0', $client->ping()['version']);
+        self::assertSame('rid-list', $client->lastRequestId());
+        self::assertSame(7, $client->lastRateLimit()?->remaining);
+        self::assertSame('Accept, Origin', $ok->header('vary'));
+
+        $limited = new Response(429, '{"status":"error","code":"too_many_requests","message":"slow"}', ['Retry-After' => ['42']]);
+        try {
+            $this->clientReturning($limited)->payments->create(['operator' => 'ORANGE']);
+            self::fail('Expected RateLimitException.');
+        } catch (RateLimitException $e) {
+            self::assertSame(42, $e->getRetryAfter());
+            self::assertSame('42', $e->getResponseHeader('Retry-After'));
         }
     }
 

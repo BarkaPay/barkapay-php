@@ -96,7 +96,7 @@ $payment = $barkapay->payments->confirmOtp($publicId, '012345'); // MOOV bf — 
 $barkapay->payments->resendOtp($publicId);
 
 $payment = $barkapay->payments->get($publicId);        // by public_id…
-$payment = $barkapay->payments->get('ORDER-2026-002'); // …or by your order id (unless it is a UUID)
+$payment = $barkapay->payments->get('ORDER-2026-002'); // …or by your order id (*)
 
 $page = $barkapay->payments->list(['status' => 'SUCCESSFUL', 'per_page' => 50]);
 foreach ($page as $payment) {
@@ -104,6 +104,8 @@ foreach ($page as $payment) {
 }
 ```
 
+- (*) `get()` cannot look up an order id that is shaped like a UUID (the API reads it as a
+  public id) or that contains a `/`: use `list(['order_id' => …])` for those.
 - `phone_number` is the national number, digits only, **without the country code**: 8 digits in
   Burkina Faso, 10 in Bénin, 9 in Sénégal. `operator` is upper case (`ORANGE`, `MOOV`, `MTN`,
   `WAVE`).
@@ -318,7 +320,8 @@ replay safely yourself:
 
 1. always send your own reference in `order.id`, with `order.unique => true` — the API then
    refuses a second operation with the same id (`ConflictException`);
-2. on `NetworkException` or `ServiceUnavailableException`, look the operation up first:
+2. on `NetworkException`, `ServiceUnavailableException` or `ServerException` (any 5xx), look
+   the operation up first:
    `payments->list(['order_id' => $orderId])` / `transfers->list(['order_id' => $orderId])`;
 3. only create it again if that list is empty.
 
@@ -371,8 +374,10 @@ and offers no way to turn certificate verification off.
 
 - TLS certificates and host names are always verified; redirects are never followed; plain
   `http://` to the barkapay hosts is refused.
-- The API key never appears in exception messages, in dumps of the client (`var_dump()`,
-  `print_r()`, `var_export()`, `dd()`), nor (PHP 8.2+) in stack traces.
+- The API key never appears in exception messages nor in dumps of the client (`var_dump()`,
+  `print_r()`, `var_export()`, `dd()`), and PHP 8.2+ redacts it from the stack traces of the SDK
+  and of its default transport. The `Request` object handed to a custom HTTP client does carry
+  the `Authorization` header: log `$request->redactedHeaders()`, never the object.
 - Identifiers and country codes are validated and percent-encoded before they reach a URL.
 - See [SECURITY.md](SECURITY.md) to report a vulnerability.
 

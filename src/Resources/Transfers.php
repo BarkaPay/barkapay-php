@@ -53,7 +53,7 @@ final class Transfers
      */
     public function create(array $params, ?string $country = null): Transfer
     {
-        return Transfer::fromArray($this->unwrap($this->api->request('POST', ['transfers'], $country, $params)));
+        return Transfer::fromArray($this->unwrap($this->api->request('POST', ['transfers'], $country, $params, expect: 'transfer')));
     }
 
     /**
@@ -73,7 +73,7 @@ final class Transfers
     public function list(array $filters = [], ?string $country = null): TransferCollection
     {
         return TransferCollection::fromEnvelope(
-            $this->api->request('GET', ['transfers'], $country, null, $filters),
+            $this->api->request('GET', ['transfers'], $country, null, $filters, 'transfers'),
         );
     }
 
@@ -84,8 +84,9 @@ final class Transfers
      * `order.unique: true`; otherwise the first match is returned — use
      * `list(['order_id' => …])` to get them all.
      *
-     * An identifier shaped like a UUID is always looked up as a public_id: if
-     * your own order ids are UUIDs, find them with `list(['order_id' => …])`.
+     * An identifier shaped like a UUID is always looked up as a public_id, and
+     * one containing `/` cannot be looked up at all (it is refused): find such
+     * order ids with `list(['order_id' => …])`.
      *
      * @throws ApiException           on any error returned by the API — {@see NotFoundException} when nothing matches
      * @throws NetworkException       when no response was received
@@ -93,7 +94,7 @@ final class Transfers
      */
     public function get(string $id, ?string $country = null): Transfer
     {
-        $env = $this->api->request('GET', ['transfers', $id], $country);
+        $env = $this->api->request('GET', ['transfers', $id], $country, expect: 'transfers');
         $rows = Coerce::rows(Coerce::arr($env, 'data') ?? [], 'transfers');
 
         if ($rows === []) {

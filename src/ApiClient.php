@@ -11,6 +11,7 @@ use PayHub\Exception\NetworkException;
 use PayHub\Http\HttpClientInterface;
 use PayHub\Http\Request;
 use PayHub\Http\Response;
+use PayHub\Util\Headers;
 use PayHub\Util\Json;
 use PayHub\Util\Path;
 use PayHub\Util\RequestId;
@@ -76,6 +77,9 @@ final class ApiClient
      * @param list<string>                    $segments path segments after `/v1/`; each one is validated and encoded
      * @param array<string, mixed>|null       $body
      * @param array<string, scalar|null>|null $query
+     * @param string|null                     $expect   what a successful answer must contain: a key of `data` holding
+     *                                                  an object or a list (`payment`, `payments`, …), `''` for `data`
+     *                                                  itself, or null when the envelope alone is enough
      *
      * @return array<string, mixed> the decoded response envelope
      *
@@ -89,6 +93,7 @@ final class ApiClient
         ?string $country = null,
         ?array $body = null,
         ?array $query = null,
+        ?string $expect = null,
     ): array {
         $method = strtoupper($method);
 
@@ -156,7 +161,7 @@ final class ApiClient
                 }
             }
 
-            return $this->handle($response, $requestId);
+            return $this->handle($response, $requestId, $expect);
         }
     }
 
@@ -207,41 +212,60 @@ final class ApiClient
     /**
      * @return array<string, mixed>
      */
-    private function handle(Response $response, string $requestId): array
+    private function handle(Response $response, string $requestId, ?string $expect): array
     {
         $status = $response->statusCode;
-
-        $headers = [];
-        foreach ($response->headers as $name => $value) {
-            $headers[strtolower((string) $name)] = $value;
-        }
+        $headers = $response->normalizedHeaders();
 
         $this->lastRateLimit = RateLimit::fromHeaders($headers);
-        if (isset($headers['x-request-id']) && $headers['x-request-id'] !== '') {
+        if (($headers['x-request-id'] ?? '') !== '') {
             $this->lastRequestId = $headers['x-request-id'];
         }
 
-        $success = $status >= 200 && $status < 300;
-
-        if ($success && $status === 204 && trim($response->body) === '') {
-            return [];
-        }
-
         $envelope = Json::decode($response->body);
-        $envStatus = $envelope['status'] ?? null;
 
-        if ($success && $envelope !== null && $envStatus !== 'error' && $envStatus !== 'failed') {
-            return $envelope;
+        // Success is exactly: a 2xx status AND the envelope saying so AND the
+        // resource the call is about. Everything else raises — a redirect, an
+        // HTML page, an empty body, an error envelope, or a JSON object that
+        // is not the answer we asked for must never look like a success.
+        $problem = null;
+        if ($status >= 200 && $status < 300 && $envelope !== null && ($envelope['status'] ?? null) === 'success') {
+            $problem = self::missing($envelope, $expect);
+            if ($problem === null) {
+                return $envelope;
+            }
         }
 
-        // Anything else is an error: a non-2xx status, an error envelope, or a
-        // body that is not the JSON envelope at all (HTML error page, redirect).
         $envelope ??= [];
+        if ($problem !== null) {
+            $envelope = ['message' => $problem] + array_diff_key($envelope, ['code' => true]);
+        }
         if (!\is_string($envelope['request_id'] ?? null) || $envelope['request_id'] === '') {
             $envelope['request_id'] = $this->lastRequestId ?? $requestId;
         }
 
         throw ApiException::fromEnvelope($status, $envelope, $headers, $response->body);
+    }
+
+    /**
+     * What a success envelope lacks to be the expected answer, or null.
+     *
+     * @param array<string, mixed> $envelope
+     */
+    private static function missing(array $envelope, ?string $expect): ?string
+    {
+        if ($expect === null) {
+            return null;
+        }
+
+        $data = $envelope['data'] ?? null;
+        if ($expect === '') {
+            return \is_array($data) ? null : 'Unexpected response from the barkapay API: the envelope has no `data`.';
+        }
+
+        return \is_array($data) && \is_array($data[$expect] ?? null)
+            ? null
+            : 'Unexpected response from the barkapay API: the envelope has no `data.' . $expect . '`.';
     }
 
     private function isRetryable(int $status, bool $isRead): bool
@@ -272,18 +296,7 @@ final class ApiClient
 
     private function retryAfter(Response $response): ?int
     {
-        $value = $response->header('Retry-After');
-        if ($value === null || $value === '') {
-            return null;
-        }
-
-        if (ctype_digit($value)) {
-            return (int) $value;
-        }
-
-        $date = strtotime($value);
-
-        return $date === false ? null : max(0, $date - time());
+        return Headers::retryAfter($response->normalizedHeaders());
     }
 
     /**
