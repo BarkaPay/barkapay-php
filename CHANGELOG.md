@@ -8,7 +8,38 @@ All notable changes to this project are documented here. The format is based on
 
 ## [1.1.0] - 2026-11-16
 
-Backward compatible with 1.0.0. Brings the SDK in line with the current API and hardens it.
+Backward compatible with 1.0.0: no public name was removed and every 1.0.0 call keeps its
+signature. Several behaviours are deliberately stricter or safer — read "Behaviour changes to
+check when upgrading" below.
+
+### Security
+
+- The API key is no longer stored in a property of the client: `var_dump()`, `print_r()`,
+  `var_export()`, `dd()` / `dump()` and debuggers cannot print it any more. `Request` masks it
+  in `var_dump()` / `print_r()`, and it is marked `#[\SensitiveParameter]` so PHP 8.2+ redacts
+  it from stack traces. A key containing whitespace or control characters is refused (header
+  injection).
+- Identifiers and country codes are validated before being placed in the URL: `.`, `..`, empty
+  values, `/`, `?`, `#` and control characters are refused, everything else is
+  percent-encoded; a country code is two letters. A value such as `..` could previously
+  redirect a call to another endpoint.
+- TLS verification is set explicitly and cannot be disabled; redirects are never followed and
+  the transport is restricted to HTTP(S).
+- **No clear-text key.** Plain `http://` is refused for a barkapay host, and for any other host
+  that is not loopback (`localhost`, `127.0.0.1`, `[::1]`) unless you pass your own
+  `httpClient` (a mock server); base URLs carrying credentials, a query string or a fragment
+  are refused.
+- Webhooks: an empty signing secret or a tolerance of 0 or less throws `ConfigurationException`
+  (1.0.0 used an empty secret as the HMAC key, and 0 switched the replay check off); the header
+  parser is strict (single numeric timestamp, 64-hex signatures, bounded length); all candidate
+  signatures are compared in constant time.
+- A response body larger than 10 MiB is refused (`NetworkException`), whether it announces its
+  size or streams it.
+- Timeouts are clamped to 1 ms – 10 min: `0`, sub-millisecond, infinite or overflowing values
+  can no longer reach curl as "wait forever".
+- `Request` masks the key in `json_encode()` too, and the default transport keeps the request
+  out of stack traces (PHP 8.2+), including when curl itself rejects the options.
+- Base URLs containing whitespace, control or non-ASCII characters are refused.
 
 ### Added
 
@@ -45,12 +76,29 @@ Backward compatible with 1.0.0. Brings the SDK in line with the current API and 
   no longer replayed after a network error, a timeout or a 503: the API has no idempotency key,
   and a blind replay could move money twice.
 - Retries wait with exponential backoff and jitter and honour `Retry-After`; when the API asks
-  for a longer wait than `maxRetryDelay` (5 s by default) the error is thrown immediately.
+  for a longer wait than `maxRetryDelay` (10 s by default, and never more than 10 s for a
+  write) the error is thrown immediately.
+- **Default timeout raised from 30 to 40 seconds** (connection: 10 s), so the SDK receives the
+  hub's own answer (it gives a gateway 30 seconds, then answers 503) instead of timing out on an
+  unknown outcome.
 - The webhook header is now documented as `Barkapay-Signature` (renamed by the API on
   2026-11-15; the signature format is unchanged). Deduplicate deliveries on `event_id`.
 - `fees` is always exposed as a decimal string, including on creation responses where the API
   sends a bare number.
 - Documentation and messages use the barkapay brand. Package name and namespace are unchanged.
+
+### Behaviour changes to check when upgrading
+
+- Writes are no longer re-sent after a 503, a 5xx or a network error (see Security): handle
+  `ServiceUnavailableException`, `ServerException` and `NetworkException` yourself, after
+  checking with `list(['order_id' => …])` that the operation was not recorded.
+- A `Retry-After` above `maxRetryDelay` (10 s) — or above 10 s for a write — is no longer slept
+  on: `RateLimitException` is thrown at once with `getRetryAfter()`.
+- A plain-`http` `baseUrl` on a non-loopback host now throws `ConfigurationException` unless you
+  pass your own `httpClient`.
+- `Webhook::verify()` / `parse()` throw `ConfigurationException` for an empty secret or a
+  tolerance of 0 or less.
+- An identifier containing `/`, `?` or `#` throws `ConfigurationException` before any request.
 
 ### Fixed
 
@@ -71,29 +119,6 @@ Backward compatible with 1.0.0. Brings the SDK in line with the current API and 
   raise `ConfigurationException`.
 - Float amounts were encoded with spurious digits (`1234.5599999999999`) on hosts configured
   with `serialize_precision = 17`.
-
-### Security
-
-- The API key is no longer stored in a property of the client: `var_dump()`, `print_r()`,
-  `var_export()`, `dd()` / `dump()` and debuggers cannot print it any more. `Request` masks it
-  in `var_dump()` / `print_r()`, and it is marked `#[\SensitiveParameter]` so PHP 8.2+ redacts
-  it from stack traces. A key containing whitespace or control characters is refused (header
-  injection).
-- Identifiers and country codes are validated before being placed in the URL: `.`, `..`, empty
-  values and control characters are refused, everything else is percent-encoded. A value such
-  as `..` could previously redirect a call to another endpoint.
-- TLS verification is set explicitly and cannot be disabled; redirects are never followed and
-  the transport is restricted to HTTP(S).
-- Plain `http://` to the barkapay hosts is refused (it sent the API key in clear text before
-  the redirect); base URLs carrying credentials, a query string or a fragment are refused.
-- Webhooks: an empty signing secret never verifies; the header parser is strict (single
-  numeric timestamp, 64-hex signatures, bounded length); all candidate signatures are compared
-  in constant time.
-- Timeouts are clamped to 1 ms – 10 min: `0`, sub-millisecond, infinite or overflowing values
-  can no longer reach curl as "wait forever".
-- `Request` masks the key in `json_encode()` too, and the default transport keeps the request
-  out of stack traces (PHP 8.2+), including when curl itself rejects the options.
-- Base URLs containing whitespace, control or non-ASCII characters are refused.
 
 ## [1.0.0] - 2026-06-27
 

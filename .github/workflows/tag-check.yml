@@ -1,0 +1,49 @@
+name: Tag check
+
+# Packagist publishes every version tag on its own (webhook): nothing here can
+# stop a publication. This workflow makes a wrong tag fail loudly, so it can be
+# deleted (and the Packagist version removed) before anyone installs it.
+#
+# Cut a release: bump Client::VERSION, update CHANGELOG.md, merge to main, then
+#     git tag -a v1.2.3 -m "v1.2.3" && git push origin v1.2.3
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Tag matches the code on main
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Tag must match Client::VERSION and have a CHANGELOG entry
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          src="$(sed -n "s/^ *public const VERSION = '\(.*\)';$/\1/p" src/Client.php)"
+          echo "tag=$tag Client::VERSION=$src"
+          if [ "$tag" != "$src" ]; then
+            echo "::error::Tag v$tag does not match Client::VERSION ($src)"
+            exit 1
+          fi
+          if ! grep -q "^## \[$tag\]" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no entry for $tag"
+            exit 1
+          fi
+
+      - name: Tag must point at a commit of main
+        run: |
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::$GITHUB_REF_NAME ($GITHUB_SHA) is not on main."
+            exit 1
+          fi
