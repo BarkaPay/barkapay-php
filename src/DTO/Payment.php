@@ -9,13 +9,24 @@ use PayHub\Util\Coerce;
 
 /**
  * A collection (payment) as returned by the API. Documented fields are typed;
- * `raw` keeps the full payload for forward-compatibility.
+ * `raw` keeps the full payload, so fields added by the API later stay
+ * reachable without upgrading the SDK.
+ *
+ * `amount` is the API's JSON number, untouched (int, or float when it has
+ * decimals); `fees` is a decimal string (`"250.00"`). Do your arithmetic in
+ * integers or with bcmath, not with floats.
  */
 final class Payment
 {
     /**
      * @param array<string, mixed>|null $orderData
      * @param array<string, mixed>      $raw
+     * @param string|null               $rawStatus         status string as sent by the API (set even when `$status` is null)
+     * @param string|null               $reasonCode        stable failure code — see {@see \PayHub\Enum\ReasonCode}
+     * @param string|null               $providerReason    the operator's own sentence — informational, not contractual
+     * @param string|null               $providerReference operator-side tracking reference (OTP transaction id, session id…)
+     * @param string|null               $linkPublicId      `PL-…` id of the payment link the payer used, if any
+     * @param string|null               $redirectUrl       URL the payer must open to approve (WAVE, `sn`)
      */
     public function __construct(
         public readonly string $publicId,
@@ -33,6 +44,12 @@ final class Payment
         public readonly ?string $reason,
         public readonly ?string $createdAt,
         public readonly array $raw,
+        public readonly ?string $rawStatus = null,
+        public readonly ?string $reasonCode = null,
+        public readonly ?string $providerReason = null,
+        public readonly ?string $providerReference = null,
+        public readonly ?string $linkPublicId = null,
+        public readonly ?string $redirectUrl = null,
     ) {
     }
 
@@ -46,7 +63,7 @@ final class Payment
         return new self(
             publicId: Coerce::str($data, 'public_id') ?? '',
             amount: Coerce::amount($data, 'amount'),
-            fees: Coerce::str($data, 'fees'),
+            fees: Coerce::decimal($data, 'fees'),
             currency: Coerce::str($data, 'currency'),
             phoneNumber: Coerce::str($data, 'phone_number'),
             country: Coerce::str($data, 'country'),
@@ -59,7 +76,25 @@ final class Payment
             reason: Coerce::str($data, 'reason'),
             createdAt: Coerce::str($data, 'created_at'),
             raw: $data,
+            rawStatus: $statusValue,
+            reasonCode: Coerce::str($data, 'reason_code'),
+            providerReason: Coerce::str($data, 'provider_reason'),
+            providerReference: Coerce::str($data, 'provider_reference'),
+            linkPublicId: Coerce::str($data, 'link_public_id'),
+            redirectUrl: Coerce::str($data, 'redirect_url'),
         );
+    }
+
+    /** The payment reached a final status (SUCCESSFUL, FAILED, EXPIRED or CANCELED). */
+    public function isFinal(): bool
+    {
+        return $this->status?->isFinal() ?? false;
+    }
+
+    /** The money was collected. */
+    public function isSuccessful(): bool
+    {
+        return $this->status === PaymentStatus::Successful;
     }
 
     /**

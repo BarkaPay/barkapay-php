@@ -6,6 +6,9 @@ namespace PayHub\Resources;
 
 use PayHub\ApiClient;
 use PayHub\DTO\Balance as BalanceDto;
+use PayHub\Exception\ApiException;
+use PayHub\Exception\ConfigurationException;
+use PayHub\Exception\NetworkException;
 use PayHub\Util\Coerce;
 
 final class Balance
@@ -14,10 +17,18 @@ final class Balance
     {
     }
 
-    /** The merchant's wallet balance for the country. */
+    /**
+     * The merchant's wallet balance for the country (scope `balance:read`).
+     * Throws {@see \PayHub\Exception\NotFoundException} when the merchant has
+     * no wallet in that country yet.
+     *
+     * @throws ApiException           on any error returned by the API (see the typed subclasses)
+     * @throws NetworkException       when no response was received
+     * @throws ConfigurationException on an invalid argument (country, identifier, parameters)
+     */
     public function get(?string $country = null): BalanceDto
     {
-        $env = $this->api->request('GET', 'balance', $country);
+        $env = $this->api->request('GET', ['balance'], $country);
 
         return BalanceDto::fromArray(Coerce::arr($env, 'data') ?? []);
     }

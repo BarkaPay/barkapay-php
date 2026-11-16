@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace PayHub\Enum;
 
+/**
+ * Status of a payment. The API may introduce new values: a status this
+ * version does not know hydrates as `null` on `Payment::$status`, while
+ * `Payment::$rawStatus` always carries the string sent by the API.
+ */
 enum PaymentStatus: string
 {
     case Created = 'CREATED';
@@ -13,12 +18,20 @@ enum PaymentStatus: string
     case ProcessingSystem = 'PROCESSING_SYSTEM';
     case Successful = 'SUCCESSFUL';
     case Failed = 'FAILED';
+    /** The payer never completed (OTP never confirmed, session expired) — distinct from a real refusal. */
+    case Expired = 'EXPIRED';
     case ComplianceFlagged = 'COMPLIANCE_FLAGGED';
     case Canceled = 'CANCELED';
 
-    /** No further transitions: SUCCESSFUL, FAILED or CANCELED. */
+    /** No further transitions: SUCCESSFUL, FAILED, EXPIRED or CANCELED. */
     public function isFinal(): bool
     {
-        return \in_array($this, [self::Successful, self::Failed, self::Canceled], true);
+        return \in_array($this, [self::Successful, self::Failed, self::Expired, self::Canceled], true);
+    }
+
+    /** The money was collected. Decide on this — never on a reason code. */
+    public function isSuccessful(): bool
+    {
+        return $this === self::Successful;
     }
 }

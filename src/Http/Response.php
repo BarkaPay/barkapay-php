@@ -10,12 +10,25 @@ namespace PayHub\Http;
 final class Response
 {
     /**
-     * @param array<string, string> $headers lower-cased header name => value
+     * @param array<string, string> $headers header name => value (looked up case-insensitively)
      */
     public function __construct(
         public readonly int $statusCode,
         public readonly string $body,
         public readonly array $headers = [],
     ) {
+    }
+
+    /** Case-insensitive header lookup; null when the header is absent. */
+    public function header(string $name): ?string
+    {
+        $wanted = strtolower($name);
+        foreach ($this->headers as $key => $value) {
+            if (strtolower((string) $key) === $wanted) {
+                return $value;
+            }
+        }
+
+        return null;
     }
 }

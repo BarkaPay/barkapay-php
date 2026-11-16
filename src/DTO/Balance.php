@@ -9,8 +9,12 @@ use PayHub\Util\Coerce;
 /**
  * The merchant wallet balance for a country.
  *
- * Fiat wallets fill `currency` + `available`/`total`/`holds` (decimal strings).
- * Crypto (`cc`) instead fills `balances`, one entry per asset/network.
+ * `available`, `total` and `holds` are decimal strings in `currency`
+ * (`"150000.00"`); `available` = `total` − `holds` is what you can disburse
+ * now. Compare them with bcmath, not as floats.
+ *
+ * `balances` is reserved for multi-asset wallets and is null on the
+ * mobile-money countries.
  */
 final class Balance
 {
@@ -34,25 +38,15 @@ final class Balance
      */
     public static function fromArray(array $data): self
     {
-        $balancesRaw = Coerce::arr($data, 'balances');
-        $balances = null;
-        if ($balancesRaw !== null) {
-            $balances = [];
-            foreach ($balancesRaw as $entry) {
-                if (\is_array($entry)) {
-                    /** @var array<string, mixed> $entry */
-                    $balances[] = $entry;
-                }
-            }
-        }
-
         return new self(
             country: Coerce::str($data, 'country'),
             currency: Coerce::str($data, 'currency'),
-            available: Coerce::str($data, 'available'),
-            total: Coerce::str($data, 'total'),
-            holds: Coerce::str($data, 'holds'),
-            balances: $balances,
+            available: Coerce::decimal($data, 'available'),
+            total: Coerce::decimal($data, 'total'),
+            holds: Coerce::decimal($data, 'holds'),
+            balances: \array_key_exists('balances', $data) && \is_array($data['balances'])
+                ? Coerce::rows($data, 'balances')
+                : null,
             raw: $data,
         );
     }

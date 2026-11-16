@@ -7,16 +7,21 @@ namespace PayHub\DTO;
 use PayHub\Util\Coerce;
 
 /**
+ * One page of payments.
+ *
  * @implements \IteratorAggregate<int, Payment>
  */
 final class PaymentCollection implements \IteratorAggregate, \Countable
 {
     /**
-     * @param list<Payment> $items
+     * @param list<Payment>    $items
+     * @param PaymentLink|null $paymentLink summary of the link (id, slug, status, stats) — only set by
+     *                                      `paymentLinks->listPayments()`
      */
     public function __construct(
         public readonly array $items,
         public readonly ?Pagination $meta,
+        public readonly ?PaymentLink $paymentLink = null,
     ) {
     }
 
@@ -26,19 +31,20 @@ final class PaymentCollection implements \IteratorAggregate, \Countable
     public static function fromEnvelope(array $envelope): self
     {
         $data = Coerce::arr($envelope, 'data') ?? [];
-        $rows = Coerce::arr($data, 'payments') ?? [];
 
         $items = [];
-        foreach ($rows as $row) {
-            if (\is_array($row)) {
-                /** @var array<string, mixed> $row */
-                $items[] = Payment::fromArray($row);
-            }
+        foreach (Coerce::rows($data, 'payments') as $row) {
+            $items[] = Payment::fromArray($row);
         }
 
         $meta = Coerce::arr($envelope, 'meta');
+        $link = Coerce::arr($data, 'payment_link');
 
-        return new self($items, $meta !== null ? Pagination::fromArray($meta) : null);
+        return new self(
+            $items,
+            $meta !== null ? Pagination::fromArray($meta) : null,
+            $link !== null ? PaymentLink::fromArray($link) : null,
+        );
     }
 
     /**

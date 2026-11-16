@@ -7,9 +7,15 @@ namespace PayHub\Resources;
 use PayHub\ApiClient;
 use PayHub\DTO\Payment;
 use PayHub\DTO\PaymentCollection;
+use PayHub\Exception\ApiException;
+use PayHub\Exception\ConfigurationException;
+use PayHub\Exception\NetworkException;
 use PayHub\Exception\NotFoundException;
 use PayHub\Util\Coerce;
 
+/**
+ * Collections: charge a payer's mobile-money wallet.
+ */
 final class Payments
 {
     public function __construct(private readonly ApiClient $api)
@@ -17,46 +23,114 @@ final class Payments
     }
 
     /**
-     * @param array<string, mixed> $params operator, phone_number, amount, order{…}, otp?
+     * Create a payment.
+     *
+     * Parameters: `operator` (see `operators->info()`), `phone_number` (digits
+     * only, no `+`), `amount`, `order` (`id` required; `unique: true` makes the
+     * API refuse a second payment with the same id; `data`: up to 20 string
+     * entries echoed back as `orderData`), and `otp` — a STRING, leading zeros
+     * matter — for operators that take the code up-front.
+     *
+     * What happens next depends on the operator — branch on the returned status:
+     *  - `SUCCESSFUL`: settled in this very response (ORANGE);
+     *  - `AWAITING_OTP`: call {@see confirmOtp()} with the code the payer received (MOOV, `bf`);
+     *  - `PROCESSING_OPERATOR`: the payer approves on their phone or at
+     *    `$payment->redirectUrl` (WAVE); the verdict arrives by webhook.
+     *
+     * A refused payment throws {@see \PayHub\Exception\PaymentFailedException}
+     * (the recorded attempt is on `getPayment()`).
+     *
+     * This call is never replayed after a timeout or a 5xx (it could charge
+     * twice): on {@see \PayHub\Exception\NetworkException}, look the payment up
+     * with `get($orderId)` before trying again.
+     *
+     * To get a hosted checkout page instead, create a payment link with
+     * `$client->paymentLinks->create()` — `POST /payments` only ever executes
+     * a direct payment.
+     *
+     * @param array<string, mixed> $params
+     *
+     * @throws ApiException           on any error returned by the API (see the typed subclasses)
+     * @throws NetworkException       when no response was received
+     * @throws ConfigurationException on an invalid argument, or when `channel` is `hosted`
      */
     public function create(array $params, ?string $country = null): Payment
     {
-        return Payment::fromArray($this->unwrap($this->api->request('POST', 'payments', $country, $params)));
+        $channel = $params['channel'] ?? null;
+        if (\is_string($channel) && strtolower($channel) === 'hosted') {
+            // The API ignores `channel` on this endpoint: letting the call
+            // through would charge the payer directly instead of returning a link.
+            throw new ConfigurationException(
+                'A hosted payment is a payment link: use $client->paymentLinks->create(). '
+                . 'payments->create() always executes a direct payment.',
+            );
+        }
+
+        return Payment::fromArray($this->unwrap($this->api->request('POST', ['payments'], $country, $params)));
     }
 
     /**
-     * @param array<string, scalar|null> $filters status, operator, from_date, to_date, per_page, …
+     * One page of payments, newest first.
+     *
+     * Filters: `status`, `operator`, `phone_number`, `order_id`, `channel`
+     * (`api` | `hosted`), `amount` + `amount_operator` (`<`, `<=`, `=`, `>=`,
+     * `>`), `from_date` + `to_date` (both required to filter by date),
+     * `per_page` (1–200, default 50) and `page`.
+     *
+     * @param array<string, scalar|null> $filters
+     *
+     * @throws ApiException           on any error returned by the API (see the typed subclasses)
+     * @throws NetworkException       when no response was received
+     * @throws ConfigurationException on an invalid argument (country, identifier, parameters)
      */
     public function list(array $filters = [], ?string $country = null): PaymentCollection
     {
         return PaymentCollection::fromEnvelope(
-            $this->api->request('GET', 'payments', $country, null, $filters),
+            $this->api->request('GET', ['payments'], $country, null, $filters),
         );
     }
 
-    /** Look up a payment by its public_id (UUID) or your order_id. */
+    /**
+     * Look up a payment by its public_id (UUID) or by your order_id.
+     *
+     * An order_id is only unique when the payment was created with
+     * `order.unique: true`; otherwise the first match is returned — use
+     * `list(['order_id' => …])` to get them all.
+     *
+     * @throws ApiException           on any error returned by the API — {@see NotFoundException} when nothing matches
+     * @throws NetworkException       when no response was received
+     * @throws ConfigurationException on an invalid argument (country, identifier, parameters)
+     */
     public function get(string $id, ?string $country = null): Payment
     {
-        $env = $this->api->request('GET', 'payments/' . rawurlencode($id), $country);
-        $data = Coerce::arr($env, 'data') ?? [];
-        $rows = Coerce::arr($data, 'payments') ?? [];
+        $env = $this->api->request('GET', ['payments', $id], $country);
+        $rows = Coerce::rows(Coerce::arr($env, 'data') ?? [], 'payments');
 
-        foreach ($rows as $row) {
-            if (\is_array($row)) {
-                /** @var array<string, mixed> $row */
-                return Payment::fromArray($row);
-            }
+        if ($rows === []) {
+            throw new NotFoundException('No payment found for "' . $id . '".', 'resource_not_found', 404);
         }
 
-        throw new NotFoundException('No payment found for "' . $id . '".', 'resource_not_found', 404);
+        return Payment::fromArray($rows[0]);
     }
 
-    /** Confirm a payment that is AWAITING_OTP (operators that require an OTP step). */
+    /**
+     * Confirm a payment that is AWAITING_OTP with the code the payer received
+     * (MOOV in Burkina Faso — the only two-step operator; other countries
+     * answer 404).
+     *
+     * One attempt only: a wrong code fails the payment for good
+     * ({@see \PayHub\Exception\PaymentFailedException}). The code is a string —
+     * `"012345"` keeps its leading zero.
+     *
+     * @throws ApiException           on any error returned by the API (see the typed subclasses)
+     * @throws NetworkException       when no response was received
+     * @throws ConfigurationException on an invalid argument (country, identifier, parameters)
+     */
     public function confirmOtp(string $publicId, string $otp, ?string $country = null): Payment
     {
         $env = $this->api->request(
             'POST',
-            'payments/' . rawurlencode($publicId) . '/confirm-otp',
+            ['payments', $publicId, 'confirm-otp'],
             $country,
             ['otp' => $otp],
         );
@@ -64,9 +138,16 @@ final class Payments
         return Payment::fromArray($this->unwrap($env));
     }
 
+    /**
+     * Send the OTP again for a payment that is AWAITING_OTP (MOOV, `bf`).
+     *
+     * @throws ApiException           on any error returned by the API (see the typed subclasses)
+     * @throws NetworkException       when no response was received
+     * @throws ConfigurationException on an invalid argument (country, identifier, parameters)
+     */
     public function resendOtp(string $publicId, ?string $country = null): void
     {
-        $this->api->request('POST', 'payments/' . rawurlencode($publicId) . '/resend-otp', $country);
+        $this->api->request('POST', ['payments', $publicId, 'resend-otp'], $country);
     }
 
     /**
@@ -76,8 +157,6 @@ final class Payments
      */
     private function unwrap(array $env): array
     {
-        $data = Coerce::arr($env, 'data') ?? [];
-
-        return Coerce::arr($data, 'payment') ?? [];
+        return Coerce::arr(Coerce::arr($env, 'data') ?? [], 'payment') ?? [];
     }
 }
