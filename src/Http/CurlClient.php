@@ -206,7 +206,7 @@ final class CurlClient implements HttpClientInterface
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_HEADER => false,
             // Refused up front when the size is announced; see send() for the rest.
-            CURLOPT_MAXFILESIZE_LARGE => self::MAX_RESPONSE_BYTES,
+            CURLOPT_MAXFILESIZE => self::MAX_RESPONSE_BYTES,
 
             // TLS: always verify the chain and the host name.
             CURLOPT_SSL_VERIFYPEER => true,
