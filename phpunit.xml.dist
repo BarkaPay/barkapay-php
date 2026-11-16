@@ -4,13 +4,20 @@
          bootstrap="vendor/autoload.php"
          colors="true"
          failOnWarning="true"
-         failOnRisky="true">
+         failOnRisky="true"
+         failOnNotice="true"
+         failOnDeprecation="true"
+         beStrictAboutOutputDuringTests="true"
+         displayDetailsOnTestsThatTriggerDeprecations="true"
+         displayDetailsOnTestsThatTriggerWarnings="true"
+         displayDetailsOnTestsThatTriggerNotices="true"
+         cacheDirectory=".phpunit.cache">
     <testsuites>
-        <testsuite name="PayHub PHP SDK">
+        <testsuite name="barkapay PHP SDK">
             <directory>tests</directory>
         </testsuite>
     </testsuites>
-    <source>
+    <source restrictDeprecations="true" restrictNotices="true" restrictWarnings="true">
         <include>
             <directory>src</directory>
         </include>

@@ -7,6 +7,9 @@ $finder = PhpCsFixer\Finder::create()
 
 return (new PhpCsFixer\Config())
     ->setRiskyAllowed(true)
+    // The rule set below is syntax-stable: allow running the fixer on PHP
+    // versions newer than the ones it officially lists.
+    ->setUnsupportedPhpVersionAllowed(true)
     ->setRules([
         '@PSR12' => true,
         'array_syntax' => ['syntax' => 'short'],
