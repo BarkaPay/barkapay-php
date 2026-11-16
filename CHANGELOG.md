@@ -78,6 +78,7 @@ check when upgrading" below.
 - Retries wait with exponential backoff and jitter and honour `Retry-After`; when the API asks
   for a longer wait than `maxRetryDelay` (10 s by default, and never more than 10 s for a
   write) the error is thrown immediately.
+- `maxRetries` is capped at 10 (`Client::MAX_RETRIES`), like the Node and Python SDKs.
 - **Default timeout raised from 30 to 40 seconds** (connection: 10 s), so the SDK receives the
   hub's own answer (it gives a gateway 30 seconds, then answers 503) instead of timing out on an
   unknown outcome.

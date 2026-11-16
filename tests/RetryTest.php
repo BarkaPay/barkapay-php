@@ -278,6 +278,20 @@ final class RetryTest extends TestCase
         self::assertCount(2, $http->requests);
     }
 
+    public function testMaxRetriesIsCappedAtTen(): void
+    {
+        $responses = array_fill(0, 20, self::unavailable());
+        $http = new FakeHttpClient($responses);
+        $client = new \PayHub\Client(apiKey: 'k:s', country: 'bf', maxRetries: 1000, httpClient: $http, maxRetryDelay: 0.0);
+
+        try {
+            $client->ping();
+            self::fail('Expected ServiceUnavailableException.');
+        } catch (ServiceUnavailableException) {
+            self::assertCount(11, $http->requests);
+        }
+    }
+
     public function testRetryAfterAsAnHttpDateIsUnderstood(): void
     {
         $http = new FakeHttpClient([
