@@ -2,29 +2,69 @@
 
 declare(strict_types=1);
 
+// Collect a payment and handle the three possible flows.
+//
+//   PAYHUB_API_KEY="key_id:secret" php examples/collect.php
+
 require __DIR__ . '/../vendor/autoload.php';
 
 use PayHub\Client;
+use PayHub\Enum\PaymentStatus;
+use PayHub\Exception\NetworkException;
 use PayHub\Exception\PayHubException;
+use PayHub\Exception\PaymentFailedException;
+use PayHub\Exception\ValidationException;
 
-$payhub = new Client(
-    apiKey: getenv('PAYHUB_API_KEY') ?: 'pk_live_xxx:sk_live_yyy',
-    country: 'bf',
-);
+$barkapay = new Client(apiKey: getenv('PAYHUB_API_KEY') ?: null, country: 'bf');
+
+// Your own reference. With `unique`, the API refuses a second payment carrying
+// the same id — which is what makes a manual retry safe.
+$orderId = 'ORDER-' . bin2hex(random_bytes(6));
 
 try {
-    // The OTP field is only needed for synchronous-OTP operators (e.g. Orange);
-    // most async operators (MTN, Wave) return PROCESSING_OPERATOR and complete
-    // via webhook. Always branch on the returned status.
-    $payment = $payhub->payments->create([
+    $payment = $barkapay->payments->create([
         'operator' => 'ORANGE',
         'phone_number' => '50123456789',
         'amount' => 10000,
+        // ORANGE takes the payer's one-time code up-front. Always a string:
+        // "012345" must keep its leading zero.
         'otp' => '123456',
-        'order' => ['id' => 'ORDER-' . time()],
+        'order' => ['id' => $orderId, 'unique' => true],
     ]);
-
-    printf("Payment %s — status %s\n", $payment->publicId, $payment->status?->value ?? 'unknown');
+} catch (ValidationException $e) {
+    fwrite(STDERR, 'Invalid request: ' . json_encode($e->getErrors()) . "\n");
+    exit(1);
+} catch (PaymentFailedException $e) {
+    // Refused by the payer or the operator. The attempt exists on the API side.
+    $failed = $e->getPayment();
+    fprintf(STDERR, "Payment %s refused: %s\n", $failed->publicId ?? '?', $failed->reasonCode ?? $e->getMessage());
+    exit(1);
+} catch (NetworkException $e) {
+    // No response: the payment may or may not exist. Look it up by order id
+    // before trying again — never re-send blindly.
+    fprintf(STDERR, "No response (request %s). Check payments->get('%s') first.\n", $e->getRequestId() ?? '?', $orderId);
+    exit(1);
 } catch (PayHubException $e) {
-    fwrite(STDERR, 'PayHub error: ' . $e->getMessage() . "\n");
+    fwrite(STDERR, 'barkapay error: ' . $e->getMessage() . "\n");
+    exit(1);
+}
+
+switch ($payment->status) {
+    case PaymentStatus::Successful:
+        printf("Payment %s settled: %s %s (fees %s)\n", $payment->publicId, (string) $payment->amount, $payment->currency ?? '', $payment->fees ?? '0');
+        break;
+
+    case PaymentStatus::AwaitingOtp:
+        // MOOV (bf): the payer received a code by SMS. Collect it, then:
+        //   $barkapay->payments->confirmOtp($payment->publicId, $code);
+        printf("Payment %s is waiting for the payer's OTP.\n", $payment->publicId);
+        break;
+
+    default:
+        // The payer approves on their phone (or at $payment->redirectUrl for
+        // WAVE). The verdict arrives by webhook — see examples/webhook.php.
+        printf("Payment %s is %s.\n", $payment->publicId, $payment->rawStatus ?? 'pending');
+        if ($payment->redirectUrl !== null) {
+            printf("Send the payer to: %s\n", $payment->redirectUrl);
+        }
 }
