@@ -221,7 +221,14 @@ final class SecurityTest extends TestCase
 
     public function testPlainHttpToTheBarkapayHostsIsRefused(): void
     {
-        foreach (['http://hub.barkapay.com', 'HTTP://Hub.BarkaPay.com/', 'http://barkapay.com'] as $url) {
+        foreach ([
+            'http://hub.barkapay.com',
+            'HTTP://Hub.BarkaPay.com/',
+            'http://barkapay.com',
+            'http://hub.barkapay.com:80',
+            'http://hub.barkapay.com.',
+            'http://hub.barkapay.com.:80/',
+        ] as $url) {
             try {
                 new Client(apiKey: 'k:s', baseUrl: $url);
                 self::fail('Expected ConfigurationException for ' . $url);

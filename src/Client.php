@@ -192,7 +192,8 @@ final class Client
         $parts = parse_url($url);
 
         $scheme = \is_array($parts) ? strtolower($parts['scheme'] ?? '') : '';
-        $host = \is_array($parts) ? strtolower($parts['host'] ?? '') : '';
+        // "hub.barkapay.com." (root dot) is the same host as "hub.barkapay.com".
+        $host = \is_array($parts) ? rtrim(strtolower($parts['host'] ?? ''), '.') : '';
 
         if (!\is_array($parts) || $host === '' || !\in_array($scheme, ['http', 'https'], true)) {
             throw new ConfigurationException('Invalid base URL: expected an absolute https:// URL.');
