@@ -249,8 +249,10 @@ http_response_code(200);
   `payment.expired`; same for `transfer`.
 - Answer with any `2xx` quickly and do the work afterwards; other answers are retried.
 - `Webhook::verify()` does the same check and returns a boolean.
-- An empty secret never verifies: if the environment variable is missing, the delivery is
-  refused rather than accepted unsigned.
+- Pass the **raw** body (`php://input`), never a re-encoded `json_encode(json_decode(…))`: the
+  bytes would differ and the signature would never match.
+- An empty secret, or a tolerance of 0 or less, throws `ConfigurationException`: a missing
+  environment variable fails loudly instead of accepting or silently refusing every delivery.
 
 ## Errors
 
@@ -298,8 +300,13 @@ try {
 }
 ```
 
-`ApiException` also exposes `getData()`, `getRetryAfter()`, `getResponseHeaders()` and
-`getResponseBody()`.
+`ApiException` also exposes `getData()`, `getRetryAfter()`, `getResponseHeaders()` /
+`getResponseHeader('x-ratelimit-remaining')` and `getResponseBody()`. `NetworkException::getRequestId()`
+is the `X-Request-Id` that was sent — quote it to support to learn whether the request arrived.
+
+A `2xx` whose body is not the expected JSON envelope (an HTML page, an empty body, a JSON object
+without the resource) throws `ApiException` too — never an empty object passed off as a success.
+After a create call it means "outcome unknown", not "refused": look the operation up.
 
 ## Retries and safe replays
 
@@ -311,8 +318,9 @@ The SDK retries on its own only what cannot duplicate an operation:
 | Writes (`create`, `confirmOtp`, `resendOtp`, `update`, `cancel`, `pause`, `resume`) | 429 only — the request was not processed |
 
 Waits use exponential backoff with jitter and honour `Retry-After`. If the API asks for a longer
-wait than `maxRetryDelay` (5 s by default), the error is thrown at once with `getRetryAfter()`
-set, instead of blocking your request.
+wait than `maxRetryDelay` (10 s by default — and never more than 10 s for a write), the error is
+thrown at once with `getRetryAfter()` set, instead of blocking your request. `maxRetries`
+(default 2) bounds the number of extra attempts.
 
 **A network error, a timeout or a 5xx on a payment or a transfer is never retried
 automatically**: the API has no idempotency key, and the operation may have gone through. To
@@ -340,6 +348,9 @@ $limit = $barkapay->lastRateLimit();   // from the response that was just receiv
 echo $limit?->remaining, ' / ', $limit?->limit, PHP_EOL;
 ```
 
+A `RateLimitException` carries the same information: `getRetryAfter()` (seconds),
+`getResponseHeader('x-ratelimit-limit')` and `getResponseHeader('x-ratelimit-remaining')`.
+
 ## Amounts
 
 - Send `amount` as an integer or a decimal **string** (`10000`, `'1500.50'`) — not as the result
@@ -357,11 +368,15 @@ $barkapay = new Client(
     country:        'bf',
     baseUrl:        'https://hub.barkapay.com', // default
     maxRetries:     2,     // 0 disables automatic retries
-    timeout:        30.0,  // seconds, whole request
+    timeout:        40.0,  // seconds, whole request (the hub itself answers 503 after 30 s)
     connectTimeout: 10.0,  // seconds, connection only
-    maxRetryDelay:  5.0,   // seconds, longest wait between two attempts
+    maxRetryDelay:  10.0,  // seconds, longest wait between two attempts
 );
 ```
+
+`baseUrl` must be `https://`. Plain `http://` is accepted for a loopback host only
+(`localhost`, `127.0.0.1`, `[::1]`) — or, when you pass your own `httpClient`, for a mock server
+on another host. It is always refused for a barkapay host.
 
 To use your own HTTP stack, pass `httpClient:` an implementation of
 `PayHub\Http\HttpClientInterface` (it must verify TLS and must not follow redirects). The
@@ -372,13 +387,16 @@ and offers no way to turn certificate verification off.
 
 ## Security
 
-- TLS certificates and host names are always verified; redirects are never followed; plain
-  `http://` to the barkapay hosts is refused.
+- TLS certificates and host names are always verified; redirects are never followed (a `3xx`
+  is an error); plain `http://` is refused outside of loopback (see Configuration).
+- A response body larger than 10 MiB is refused (`NetworkException`).
 - The API key never appears in exception messages nor in dumps of the client (`var_dump()`,
   `print_r()`, `var_export()`, `dd()`), and PHP 8.2+ redacts it from the stack traces of the SDK
   and of its default transport. The `Request` object handed to a custom HTTP client does carry
   the `Authorization` header: log `$request->redactedHeaders()`, never the object.
-- Identifiers and country codes are validated and percent-encoded before they reach a URL.
+- Identifiers and country codes are validated and percent-encoded before they reach a URL: an
+  empty identifier, `.`, `..`, or one containing `/`, `?`, `#` or a control character is refused
+  before any request; a country code is two letters.
 - See [SECURITY.md](SECURITY.md) to report a vulnerability.
 
 ## Upgrading from 1.0
@@ -386,7 +404,11 @@ and offers no way to turn certificate verification off.
 1.1 is backward compatible. Worth knowing:
 
 - writes are no longer replayed after a network error, a timeout or a 503 (they could be
-  executed twice) — only after a 429;
+  executed twice) — only after a 429 asking for 10 s or less;
+- the default timeout is 40 s (was 30 s) and `maxRetryDelay` 10 s;
+- `baseUrl` must be `https://` unless it is a loopback host or you pass your own `httpClient`;
+- `Webhook::verify()` / `parse()` throw `ConfigurationException` for an empty secret or a
+  tolerance of 0 or less (0 used to switch the replay check off);
 - `EXPIRED` payments and `UNCERTAIN` transfers now have an enum case (they used to hydrate as
   `status === null`);
 - the webhook header is `Barkapay-Signature` (`$_SERVER['HTTP_BARKAPAY_SIGNATURE']`) — the old
