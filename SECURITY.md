@@ -28,8 +28,9 @@ issues as a patch release of the latest minor version.
   (`#[\SensitiveParameter]`).
 - **URLs** — country codes and identifiers are validated and percent-encoded; relative path
   segments (`.`, `..`), empty values and control characters are refused.
-- **Retries** — a request that moves money is never replayed unless the API provably did not
-  process it.
+- **Retries** — only reads are retried on network errors and 5xx. A write (payment, transfer,
+  OTP confirmation, payment-link change) is replayed on 429 only, where the API did not process
+  the request.
 - **Webhooks** — signatures are compared in constant time, stale or malformed headers are
   rejected, and an empty signing secret never verifies.
 

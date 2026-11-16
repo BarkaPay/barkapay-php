@@ -26,11 +26,11 @@ use PayHub\Util\Secret;
  * Retry policy — a request is only ever repeated when that cannot duplicate
  * an operation:
  *  - reads (`GET`) are retried on network errors and on 429 / 502 / 503 / 504;
- *  - writes (`POST`, `PATCH`, `DELETE`) are retried only when the API provably
- *    did not process them: a 429 (rejected by the rate limiter before any
- *    work) or a connection that was never established. A timeout or a 5xx on
- *    a write is surfaced to the caller: the API has no idempotency key, so
- *    replaying a payment or a transfer blindly could move money twice.
+ *  - writes (`POST`, `PATCH`, `DELETE`) are retried on 429 only: the rate
+ *    limiter refuses the request before any work is done. A network error, a
+ *    timeout or a 5xx on a write is always surfaced to the caller: the API
+ *    has no idempotency key, so replaying a payment or a transfer blindly
+ *    could move money twice.
  *
  * Waits use exponential backoff with jitter and honour `Retry-After`. When the
  * API asks for a longer wait than `$maxRetryDelay`, the error is thrown
@@ -135,7 +135,9 @@ final class ApiClient
             try {
                 $response = $this->httpClient->send($request);
             } catch (NetworkException $e) {
-                if ($attempt < $this->maxRetries && ($isRead || $e->isConnectionFailure())) {
+                // Never for a write, whatever the failure: only the caller can
+                // tell (by looking the operation up) whether it is safe.
+                if ($isRead && $attempt < $this->maxRetries) {
                     $this->wait($this->backoff($attempt++));
 
                     continue;
