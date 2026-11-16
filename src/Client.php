@@ -104,7 +104,7 @@ final class Client
      */
     public function ping(?string $country = null): array
     {
-        return Coerce::arr($this->api->request('GET', ['ping'], $country), 'data') ?? [];
+        return Coerce::arr($this->api->request('GET', ['ping'], $country, expect: ''), 'data') ?? [];
     }
 
     /**
@@ -118,7 +118,7 @@ final class Client
      */
     public function me(?string $country = null): array
     {
-        return Coerce::arr($this->api->request('GET', ['me'], $country), 'data') ?? [];
+        return Coerce::arr($this->api->request('GET', ['me'], $country, expect: ''), 'data') ?? [];
     }
 
     /**
@@ -189,6 +189,12 @@ final class Client
     private static function normalizeBaseUrl(string $baseUrl): string
     {
         $url = rtrim(trim($baseUrl), '/');
+
+        // Printable ASCII only: no whitespace, no control character can reach the transport.
+        if (preg_match('/^[\x21-\x7E]+$/D', $url) !== 1) {
+            throw new ConfigurationException('Invalid base URL: expected an absolute https:// URL.');
+        }
+
         $parts = parse_url($url);
 
         $scheme = \is_array($parts) ? strtolower($parts['scheme'] ?? '') : '';

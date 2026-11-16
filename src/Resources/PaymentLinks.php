@@ -52,7 +52,7 @@ final class PaymentLinks
      */
     public function create(array $params, ?string $country = null): PaymentLink
     {
-        return $this->one($this->api->request('POST', ['payments', 'links'], $country, $params));
+        return $this->one($this->api->request('POST', ['payments', 'links'], $country, $params, expect: 'payment_link'));
     }
 
     /**
@@ -71,7 +71,7 @@ final class PaymentLinks
     public function list(array $params = [], ?string $country = null): PaymentLinkCollection
     {
         return PaymentLinkCollection::fromEnvelope(
-            $this->api->request('GET', ['payments', 'links'], $country, null, $params),
+            $this->api->request('GET', ['payments', 'links'], $country, null, $params, 'payment_links'),
         );
     }
 
@@ -84,7 +84,7 @@ final class PaymentLinks
      */
     public function get(string $id, ?string $country = null): PaymentLink
     {
-        return $this->one($this->api->request('GET', ['payments', 'links', $id], $country));
+        return $this->one($this->api->request('GET', ['payments', 'links', $id], $country, expect: 'payment_link'));
     }
 
     /**
@@ -102,7 +102,7 @@ final class PaymentLinks
      */
     public function update(string $id, array $params, ?string $country = null): PaymentLink
     {
-        return $this->one($this->api->request('PATCH', ['payments', 'links', $id], $country, $params));
+        return $this->one($this->api->request('PATCH', ['payments', 'links', $id], $country, $params, expect: 'payment_link'));
     }
 
     /**
@@ -117,7 +117,7 @@ final class PaymentLinks
      */
     public function cancel(string $id, ?string $country = null): PaymentLink
     {
-        return $this->one($this->api->request('DELETE', ['payments', 'links', $id], $country));
+        return $this->one($this->api->request('DELETE', ['payments', 'links', $id], $country, expect: 'payment_link'));
     }
 
     /**
@@ -132,7 +132,7 @@ final class PaymentLinks
      */
     public function pause(string $id, ?string $country = null): PaymentLink
     {
-        return $this->one($this->api->request('POST', ['payments', 'links', $id, 'pause'], $country));
+        return $this->one($this->api->request('POST', ['payments', 'links', $id, 'pause'], $country, expect: 'payment_link'));
     }
 
     /**
@@ -145,7 +145,7 @@ final class PaymentLinks
      */
     public function resume(string $id, ?string $country = null): PaymentLink
     {
-        return $this->one($this->api->request('POST', ['payments', 'links', $id, 'resume'], $country));
+        return $this->one($this->api->request('POST', ['payments', 'links', $id, 'resume'], $country, expect: 'payment_link'));
     }
 
     /**
@@ -168,7 +168,7 @@ final class PaymentLinks
     public function listPayments(string $id, array $params = [], ?string $country = null): PaymentCollection
     {
         return PaymentCollection::fromEnvelope(
-            $this->api->request('GET', ['payments', 'links', $id, 'payments'], $country, null, $params),
+            $this->api->request('GET', ['payments', 'links', $id, 'payments'], $country, null, $params, 'payments'),
         );
     }
 

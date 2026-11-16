@@ -8,10 +8,14 @@ namespace PayHub\Http;
  * An outbound HTTP request. Plain value object so a custom
  * {@see HttpClientInterface} can be plugged in without depending on PSR types.
  *
- * The `Authorization` header carries the API key: never log `$headers` as-is.
- * `var_dump()` / `print_r()` on this object are safe — credentials are masked.
+ * ⚠️ `$headers` holds the real `Authorization` header — the transport needs
+ * it. `var_dump()`, `print_r()` and `json_encode()` of this object mask it,
+ * but `var_export()`, an `(array)` cast, `serialize()` and dumpers built on
+ * them (`dd()`) do not: log {@see redactedHeaders()}, never the object.
+ * A transport should also mark its `Request` parameter `#[\SensitiveParameter]`
+ * so it stays out of stack traces.
  */
-final class Request
+final class Request implements \JsonSerializable
 {
     /** Header names whose value must never reach a log or a dump. */
     private const SENSITIVE_HEADERS = ['authorization', 'x-api-key', 'proxy-authorization', 'cookie'];
@@ -41,6 +45,14 @@ final class Request
         }
 
         return $headers;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function jsonSerialize(): array
+    {
+        return $this->__debugInfo();
     }
 
     /**

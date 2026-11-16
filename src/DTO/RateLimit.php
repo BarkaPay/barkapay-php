@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace PayHub\DTO;
 
+use PayHub\Util\Coerce;
+
 /**
  * Rate-limit budget reported by an API response (`X-RateLimit-*` headers).
  *
@@ -30,24 +32,14 @@ final class RateLimit
      */
     public static function fromHeaders(array $headers): ?self
     {
-        $limit = self::intHeader($headers, 'x-ratelimit-limit');
-        $remaining = self::intHeader($headers, 'x-ratelimit-remaining');
-        $retryAfter = self::intHeader($headers, 'retry-after');
+        $limit = Coerce::digits($headers['x-ratelimit-limit'] ?? null);
+        $remaining = Coerce::digits($headers['x-ratelimit-remaining'] ?? null);
+        $retryAfter = Coerce::digits($headers['retry-after'] ?? null);
 
         if ($limit === null && $remaining === null && $retryAfter === null) {
             return null;
         }
 
         return new self($limit, $remaining, $retryAfter);
-    }
-
-    /**
-     * @param array<string, string> $headers
-     */
-    private static function intHeader(array $headers, string $name): ?int
-    {
-        $value = $headers[$name] ?? null;
-
-        return $value !== null && $value !== '' && ctype_digit($value) ? (int) $value : null;
     }
 }

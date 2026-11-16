@@ -251,6 +251,11 @@ final class SecurityTest extends TestCase
         yield 'query string' => ['https://hub.barkapay.com?x=1'];
         yield 'fragment' => ['https://hub.barkapay.com/#x'];
         yield 'no host' => ['https://'];
+        yield 'nul byte' => ["https://hub.barkapay.com\x00.evil.test"];
+        yield 'inner space' => ['https://hub.barkapay.com/a b'];
+        yield 'tab' => ["https://hub.barkapay.com/\tx"];
+        yield 'crlf' => ["https://hub.barkapay.com/\r\nX-Injected: 1"];
+        yield 'non ascii' => ['https://hub.barkapay.cöm'];
     }
 
     #[DataProvider('invalidBaseUrls')]
@@ -285,7 +290,9 @@ final class SecurityTest extends TestCase
         yield 'dot dot' => ['..'];
         yield 'newline' => ["abc\ndef"];
         yield 'nul byte' => ["abc\x00"];
-        yield 'too long' => [str_repeat('a', 256)];
+        yield 'too long' => [str_repeat('a', 1021)];
+        yield 'slash' => ['INV/2026/0001'];
+        yield 'traversal' => ['../../transfers'];
     }
 
     #[DataProvider('hostileIdentifiers')]
@@ -325,17 +332,41 @@ final class SecurityTest extends TestCase
             FakeHttpClient::ok(['payment_link' => []]),
             FakeHttpClient::ok(['payments' => [['public_id' => 'p']]]),
             FakeHttpClient::ok(['payment_link' => []]),
+            FakeHttpClient::ok(['payments' => [['public_id' => 'p']]]),
         ]);
         $client = $this->client($http);
 
-        $client->paymentLinks->cancel('../../transfers');
-        self::assertSame('https://hub.barkapay.com/bf/v1/payments/links/..%2F..%2Ftransfers', $http->last()->url);
+        $client->paymentLinks->cancel('..\\..\\transfers');
+        self::assertSame('https://hub.barkapay.com/bf/v1/payments/links/..%5C..%5Ctransfers', $http->last()->url);
 
         $client->payments->get('x?per_page=200#frag');
         self::assertSame('https://hub.barkapay.com/bf/v1/payments/x%3Fper_page%3D200%23frag', $http->last()->url);
 
         $client->paymentLinks->pause('%2e%2e');
         self::assertSame('https://hub.barkapay.com/bf/v1/payments/links/%252e%252e/pause', $http->last()->url);
+
+        // The API caps order ids at 255 CHARACTERS: multi-byte ones must pass.
+        $client->payments->get(str_repeat('é', 255));
+        self::assertSame(
+            'https://hub.barkapay.com/bf/v1/payments/' . str_repeat('%C3%A9', 255),
+            $http->last()->url,
+        );
+    }
+
+    public function testAnIdentifierWithASlashIsRefusedWithAWayOut(): void
+    {
+        // Encoded or not, a slash makes the API answer 404 for a payment that
+        // exists: better a clear error than a false "not found" on money.
+        $http = new FakeHttpClient([]);
+
+        try {
+            $this->client($http)->payments->get('INV/2026/0001');
+            self::fail('Expected ConfigurationException.');
+        } catch (ConfigurationException $e) {
+            self::assertStringContainsString("list(['order_id'", $e->getMessage());
+        }
+
+        self::assertCount(0, $http->requests);
     }
 
     /**
@@ -416,6 +447,95 @@ final class SecurityTest extends TestCase
         // A connect timeout can never exceed the total timeout.
         $capped = (new CurlClient(2.0, 10.0))->options($request);
         self::assertSame(2000, $capped[CURLOPT_CONNECTTIMEOUT_MS]);
+
+        // Nothing rounds down to 0 ("wait forever") or overflows once in milliseconds.
+        $tiny = (new CurlClient(0.0004, 0.0001))->options($request);
+        self::assertSame(1, $tiny[CURLOPT_TIMEOUT_MS]);
+        self::assertSame(1, $tiny[CURLOPT_CONNECTTIMEOUT_MS]);
+
+        foreach ([INF, -INF, NAN] as $weird) {
+            $options = (new CurlClient($weird, $weird))->options($request);
+            self::assertSame(30000, $options[CURLOPT_TIMEOUT_MS]);
+            self::assertSame(10000, $options[CURLOPT_CONNECTTIMEOUT_MS]);
+        }
+
+        foreach ([1e16, (float) PHP_INT_MAX] as $huge) {
+            $options = (new CurlClient($huge, $huge))->options($request);
+            self::assertSame(600000, $options[CURLOPT_TIMEOUT_MS]);
+            self::assertSame(600000, $options[CURLOPT_CONNECTTIMEOUT_MS]);
+        }
+    }
+
+    public function testTheDefaultTransportKeepsTheRequestOutOfStackTraces(): void
+    {
+        foreach (['send', 'options'] as $method) {
+            $parameter = (new \ReflectionMethod(CurlClient::class, $method))->getParameters()[0];
+            self::assertSame('request', $parameter->getName());
+            self::assertCount(1, $parameter->getAttributes(\SensitiveParameter::class), $method);
+        }
+    }
+
+    public function testTransportFailuresNeverCarryTheKeyInTheirTrace(): void
+    {
+        if (PHP_VERSION_ID < 80200) {
+            self::markTestSkipped('#[SensitiveParameter] only exists from PHP 8.2.');
+        }
+
+        $previous = ini_set('zend.exception_ignore_args', '0');
+
+        try {
+            $failures = [
+                // Refused by curl before any I/O: the scheme is not http(s).
+                new Request('GET', 'ftp://127.0.0.1/x', ['Authorization' => 'Bearer ' . self::KEY]),
+                // Makes curl_setopt_array() itself throw (NUL byte in the URL).
+                new Request('GET', "https://127.0.0.1/\x00", ['Authorization' => 'Bearer ' . self::KEY]),
+            ];
+
+            foreach ($failures as $request) {
+                try {
+                    (new CurlClient(1.0, 1.0))->send($request);
+                    self::fail('Expected NetworkException.');
+                } catch (\PayHub\Exception\NetworkException $e) {
+                    // The failure is raised by our own code, with nothing chained to it.
+                    self::assertNull($e->getPrevious());
+
+                    $trace = $e->getTraceAsString() . var_export($e->getTrace(), true) . json_encode($e->getTrace());
+                    self::assertStringNotContainsString('SUPERSECRETVALUE', $trace);
+                    self::assertStringNotContainsString('SUPERSECRETVALUE', $e->getMessage());
+                }
+            }
+        } finally {
+            ini_set('zend.exception_ignore_args', (string) $previous);
+        }
+    }
+
+    public function testJsonEncodingARequestMasksCredentials(): void
+    {
+        $request = new Request('POST', 'https://hub.barkapay.com/bf/v1/payments', ['Authorization' => 'Bearer ' . self::KEY], '{}');
+
+        $json = (string) json_encode($request);
+
+        self::assertStringNotContainsString('SUPERSECRETVALUE', $json);
+        self::assertStringContainsString('[REDACTED]', $json);
+        self::assertStringContainsString('hub.barkapay.com', $json);
+    }
+
+    public function testTheSdkOnlyUsesTheExtensionsItDeclares(): void
+    {
+        // composer.json requires ext-curl and ext-json only: nothing from the
+        // optional extensions (ctype, mbstring, iconv, intl, bcmath…) may be called.
+        $forbidden = '/\\b(ctype_|mb_|iconv|grapheme_|bc(add|sub|mul|div|comp|mod)|gmp_|idn_to_|filter_var)\\w*\\s*\\(/';
+
+        $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(__DIR__ . '/../src', \FilesystemIterator::SKIP_DOTS));
+        $checked = 0;
+        foreach ($files as $file) {
+            self::assertInstanceOf(\SplFileInfo::class, $file);
+            $code = (string) file_get_contents($file->getPathname());
+            self::assertDoesNotMatchRegularExpression($forbidden, $code, $file->getFilename() . ' calls a function of an undeclared extension.');
+            ++$checked;
+        }
+
+        self::assertGreaterThan(40, $checked);
     }
 
     public function testBodylessWritesStillAnnounceAnEmptyBody(): void

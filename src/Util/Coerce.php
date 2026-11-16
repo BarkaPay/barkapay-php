@@ -28,7 +28,16 @@ final class Coerce
     {
         $value = $data[$key] ?? null;
 
-        return \is_int($value) ? $value : (\is_string($value) && ctype_digit($value) ? (int) $value : null);
+        return \is_int($value) ? $value : (\is_string($value) ? self::digits($value) : null);
+    }
+
+    /**
+     * A non-negative integer written with digits only ("30"), or null.
+     * (No ext-ctype: the SDK only relies on the extensions it declares.)
+     */
+    public static function digits(?string $value): ?int
+    {
+        return $value !== null && preg_match('/^[0-9]{1,18}$/D', $value) === 1 ? (int) $value : null;
     }
 
     /**

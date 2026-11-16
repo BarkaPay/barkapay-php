@@ -30,7 +30,7 @@ final class Operators
      */
     public function availability(?string $country = null): array
     {
-        return Coerce::arr($this->api->request('GET', ['operators', 'availability'], $country), 'data') ?? [];
+        return Coerce::arr($this->api->request('GET', ['operators', 'availability'], $country, expect: ''), 'data') ?? [];
     }
 
     /**
@@ -47,6 +47,6 @@ final class Operators
      */
     public function info(?string $country = null): array
     {
-        return Coerce::arr($this->api->request('GET', ['operators', 'info'], $country), 'data') ?? [];
+        return Coerce::arr($this->api->request('GET', ['operators', 'info'], $country, expect: ''), 'data') ?? [];
     }
 }

@@ -24,8 +24,8 @@ issues as a patch release of the latest minor version.
   another URL. Plain `http://` to the barkapay hosts is refused.
 - **Credentials** — the API key is never written to an exception message. It is not stored in
   any property of the client, so `var_dump()`, `print_r()`, `var_export()`, `dd()` / `dump()`
-  and debuggers cannot print it. On PHP 8.2+ it is redacted from stack traces
-  (`#[\SensitiveParameter]`).
+  and debuggers cannot print it. On PHP 8.2+ it is redacted from the stack traces of the SDK
+  and of its default transport (`#[\SensitiveParameter]`).
 - **URLs** — country codes and identifiers are validated and percent-encoded; relative path
   segments (`.`, `..`), empty values and control characters are refused.
 - **Retries** — only reads are retried on network errors and 5xx. A write (payment, transfer,
@@ -40,8 +40,10 @@ issues as a patch release of the latest minor version.
   front-end and your logs. Load them from the environment or a secret manager; rotate a key
   from the dashboard as soon as you suspect a leak.
 - A custom HTTP client receives the real `Authorization` header in
-  `PayHub\Http\Request::$headers`: log `redactedHeaders()` instead, and do not dump the request
-  with tools other than `var_dump()` / `print_r()`.
+  `PayHub\Http\Request::$headers`. `var_dump()`, `print_r()` and `json_encode()` of the request
+  mask it; `var_export()`, an `(array)` cast, `serialize()` and `dd()` do not. Log
+  `redactedHeaders()`, never the object, and mark the `$request` parameter of your `send()`
+  with `#[\SensitiveParameter]`.
 - `serialize($client)` deliberately carries the API key (so a queued job can use the client):
   treat that payload as a secret, or better, serialize your own configuration and rebuild the
   client.

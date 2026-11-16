@@ -56,11 +56,16 @@ Backward compatible with 1.0.0. Brings the SDK in line with the current API and 
 
 - The `User-Agent` reported version `0.1.0`; it now carries the real SDK version.
 - `EXPIRED` payments and `UNCERTAIN` transfers hydrated with `status === null`.
-- A response that was not the JSON envelope (redirect, HTML error page, empty body) was returned
-  as an empty success — `payments->create()` could hand back an empty `Payment`. It now throws
-  an `ApiException`.
+- A response that was not the success envelope (redirect, HTML error page, empty body, foreign
+  JSON), or a success envelope without the resource the call is about, was returned as an empty
+  success — `payments->create()` could hand back an empty `Payment`, a list could come back
+  empty. Both now throw an `ApiException`.
 - `payments->get('')` and friends silently hit the list endpoint and returned its first row;
-  empty identifiers are now refused.
+  empty identifiers are now refused. An identifier containing `/` (which the API can only
+  answer with a misleading 404) is refused with a pointer to `list(['order_id' => …])`.
+- The SDK called `ctype_digit()` without declaring `ext-ctype`; it no longer uses that
+  extension.
+- Header values handed over as lists by a custom transport (PSR-7 style) are accepted.
 - An empty request body was sent as `[]` instead of `{}`.
 - Request parameters that cannot be encoded as JSON raised a bare `JsonException`; they now
   raise `ConfigurationException`.
@@ -84,7 +89,11 @@ Backward compatible with 1.0.0. Brings the SDK in line with the current API and 
 - Webhooks: an empty signing secret never verifies; the header parser is strict (single
   numeric timestamp, 64-hex signatures, bounded length); all candidate signatures are compared
   in constant time.
-- A timeout of `0` (wait forever) is no longer passed to curl.
+- Timeouts are clamped to 1 ms – 10 min: `0`, sub-millisecond, infinite or overflowing values
+  can no longer reach curl as "wait forever".
+- `Request` masks the key in `json_encode()` too, and the default transport keeps the request
+  out of stack traces (PHP 8.2+), including when curl itself rejects the options.
+- Base URLs containing whitespace, control or non-ASCII characters are refused.
 
 ## [1.0.0] - 2026-06-27
 
