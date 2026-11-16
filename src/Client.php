@@ -38,6 +38,9 @@ final class Client
 
     public const DEFAULT_BASE_URL = 'https://hub.barkapay.com';
 
+    /** Upper bound of `$maxRetries` (same in the Node and Python SDKs). */
+    public const MAX_RETRIES = 10;
+
     public readonly Payments $payments;
     public readonly Transfers $transfers;
     public readonly Balance $balance;
@@ -55,7 +58,7 @@ final class Client
      * @param string                   $baseUrl        API base URL — HTTPS. Plain http:// is accepted for a loopback host
      *                                                 only (localhost, 127.0.0.1, [::1]), or for a non-barkapay host
      *                                                 when you pass your own `$httpClient`
-     * @param int                      $maxRetries     automatic retries of what is safe to retry (see README → Retries)
+     * @param int                      $maxRetries     automatic retries of what is safe to retry, 0 to 10 (see README → Retries)
      * @param float                    $timeout        total time allowed for one request, in seconds
      * @param HttpClientInterface|null $httpClient     custom transport; `$timeout` / `$connectTimeout` then do not apply
      * @param float                    $connectTimeout time allowed to establish the connection, in seconds
@@ -84,7 +87,7 @@ final class Client
             authorization: self::buildAuthorization($apiKey, $keyId, $secret),
             baseUrl: self::normalizeBaseUrl($baseUrl, $httpClient !== null),
             defaultCountry: strtolower(trim($country)),
-            maxRetries: max(0, $maxRetries),
+            maxRetries: min(self::MAX_RETRIES, max(0, $maxRetries)),
             userAgent: self::userAgent(),
             maxRetryDelay: max(0.0, $maxRetryDelay),
         );
