@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace PayHub\Tests;
+namespace BarkaPay\Tests;
 
-use PayHub\Client;
-use PayHub\DTO\Payment;
-use PayHub\Enum\PaymentStatus;
-use PayHub\Enum\TransferStatus;
-use PayHub\Exception\ConfigurationException;
-use PayHub\Exception\NotFoundException;
-use PayHub\Tests\Support\FakeHttpClient;
+use BarkaPay\Client;
+use BarkaPay\DTO\Payment;
+use BarkaPay\Enum\PaymentStatus;
+use BarkaPay\Enum\TransferStatus;
+use BarkaPay\Exception\ConfigurationException;
+use BarkaPay\Exception\NotFoundException;
+use BarkaPay\Tests\Support\FakeHttpClient;
 use PHPUnit\Framework\TestCase;
 
 final class ClientTest extends TestCase
@@ -73,7 +73,7 @@ final class ClientTest extends TestCase
         $this->client($http)->ping();
 
         self::assertSame(
-            'PayHub-PHP/' . Client::VERSION . ' PHP/' . PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION,
+            'barkapay-php/' . Client::VERSION . ' php/' . PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION,
             $http->last()->headers['User-Agent'],
         );
         self::assertMatchesRegularExpression('/^\d+\.\d+\.\d+$/', Client::VERSION);

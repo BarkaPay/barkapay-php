@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PayHub\Exception;
+namespace BarkaPay\Exception;
 
 /**
  * The HTTP request never completed (DNS, connection, TLS, timeout): there is
@@ -14,7 +14,7 @@ namespace PayHub\Exception;
  * API may have processed it. Look the operation up by your `order.id`
  * (`list(['order_id' => …])`) before sending it again.
  */
-final class NetworkException extends \RuntimeException implements PayHubException
+final class NetworkException extends \RuntimeException implements BarkaPayException
 {
     private ?string $requestId = null;
 

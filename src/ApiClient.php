@@ -2,20 +2,20 @@
 
 declare(strict_types=1);
 
-namespace PayHub;
+namespace BarkaPay;
 
-use PayHub\DTO\RateLimit;
-use PayHub\Exception\ApiException;
-use PayHub\Exception\ConfigurationException;
-use PayHub\Exception\NetworkException;
-use PayHub\Http\HttpClientInterface;
-use PayHub\Http\Request;
-use PayHub\Http\Response;
-use PayHub\Util\Headers;
-use PayHub\Util\Json;
-use PayHub\Util\Path;
-use PayHub\Util\RequestId;
-use PayHub\Util\Secret;
+use BarkaPay\DTO\RateLimit;
+use BarkaPay\Exception\ApiException;
+use BarkaPay\Exception\ConfigurationException;
+use BarkaPay\Exception\NetworkException;
+use BarkaPay\Http\HttpClientInterface;
+use BarkaPay\Http\Request;
+use BarkaPay\Http\Response;
+use BarkaPay\Util\Headers;
+use BarkaPay\Util\Json;
+use BarkaPay\Util\Path;
+use BarkaPay\Util\RequestId;
+use BarkaPay\Util\Secret;
 
 /**
  * Internal transport: turns a logical call (method, path segments, country,

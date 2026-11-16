@@ -35,10 +35,10 @@ CI runs them on PHP 8.1 to 8.5.
 
 ## Releasing (Packagist)
 
-Packagist serves `barkapay/payhub-php` straight from Git tags — there is no publish workflow to
+Packagist serves `barkapay/barkapay-php` straight from Git tags — there is no publish workflow to
 run. To cut a release:
 
-1. set `PayHub\Client::VERSION` and add the version section to `CHANGELOG.md` (a test checks
+1. set `BarkaPay\Client::VERSION` and add the version section to `CHANGELOG.md` (a test checks
    that the two agree);
 2. merge to `main` and wait for a green CI;
 3. tag and push:

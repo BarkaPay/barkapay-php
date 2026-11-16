@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PayHub\Enum;
+namespace BarkaPay\Enum;
 
 /**
  * Status of a transfer. The API may introduce new values: a status this

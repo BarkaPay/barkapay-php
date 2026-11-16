@@ -4,7 +4,7 @@
 
 Please **do not** open a public issue for security vulnerabilities.
 
-- Preferred: GitHub's [private vulnerability reporting](https://github.com/BarkaPay/payhub-php/security/advisories/new).
+- Preferred: GitHub's [private vulnerability reporting](https://github.com/BarkaPay/barkapay-php/security/advisories/new).
 - Or email **security@payhub.africa** with the details and reproduction steps.
 
 We aim to acknowledge reports within 72 hours, and to ship a fix or a mitigation for confirmed
@@ -14,8 +14,8 @@ issues as a patch release of the latest minor version.
 
 | Version | Security fixes |
 |---|---|
-| 1.1.x | yes |
-| 1.0.x | no — upgrade to 1.1 (drop-in) |
+| 2.0.x (`barkapay/barkapay-php`) | yes |
+| 1.x (`barkapay/payhub-php`) | no — upgrade to 2.0 (a rename, see the README) |
 
 ## What the SDK guarantees
 
@@ -40,7 +40,7 @@ issues as a patch release of the latest minor version.
   front-end and your logs. Load them from the environment or a secret manager; rotate a key
   from the dashboard as soon as you suspect a leak.
 - A custom HTTP client receives the real `Authorization` header in
-  `PayHub\Http\Request::$headers`. `var_dump()`, `print_r()` and `json_encode()` of the request
+  `BarkaPay\Http\Request::$headers`. `var_dump()`, `print_r()` and `json_encode()` of the request
   mask it; `var_export()`, an `(array)` cast, `serialize()` and `dd()` do not. Log
   `redactedHeaders()`, never the object, and mark the `$request` parameter of your `send()`
   with `#[\SensitiveParameter]`.
@@ -49,7 +49,7 @@ issues as a patch release of the latest minor version.
   client.
 - On PHP 8.1, keep `zend.exception_ignore_args = On` (the production default) so arguments are
   not captured in stack traces.
-- Always verify webhooks against the **raw** request body (`PayHub\Webhook::parse()` /
+- Always verify webhooks against the **raw** request body (`BarkaPay\Webhook::parse()` /
   `verify()`) before trusting them, keep the default 300-second tolerance, and deduplicate on
   `event_id`.
 - A custom `HttpClientInterface` must verify TLS and must not follow redirects.

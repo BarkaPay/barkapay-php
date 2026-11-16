@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace PayHub\Tests;
+namespace BarkaPay\Tests;
 
-use PayHub\Exception\ConfigurationException;
-use PayHub\Exception\SignatureVerificationException;
-use PayHub\Webhook;
+use BarkaPay\Exception\ConfigurationException;
+use BarkaPay\Exception\SignatureVerificationException;
+use BarkaPay\Webhook;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -34,7 +34,6 @@ final class WebhookTest extends TestCase
     public function testHeaderNames(): void
     {
         self::assertSame('Barkapay-Signature', Webhook::SIGNATURE_HEADER);
-        self::assertSame('PayHub-Signature', Webhook::LEGACY_SIGNATURE_HEADER);
         self::assertSame(300, Webhook::DEFAULT_TOLERANCE);
     }
 

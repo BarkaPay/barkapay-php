@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace PayHub\Tests\Support;
+namespace BarkaPay\Tests\Support;
 
-use PayHub\Http\HttpClientInterface;
-use PayHub\Http\Request;
-use PayHub\Http\Response;
+use BarkaPay\Http\HttpClientInterface;
+use BarkaPay\Http\Request;
+use BarkaPay\Http\Response;
 
 /**
  * Records the request and replays queued responses — no network.

@@ -4,18 +4,18 @@ declare(strict_types=1);
 
 // Collect a payment and handle the three possible flows.
 //
-//   PAYHUB_API_KEY="key_id:secret" php examples/collect.php
+//   BARKAPAY_API_KEY="key_id:secret" php examples/collect.php
 
 require __DIR__ . '/../vendor/autoload.php';
 
-use PayHub\Client;
-use PayHub\Enum\PaymentStatus;
-use PayHub\Exception\NetworkException;
-use PayHub\Exception\PayHubException;
-use PayHub\Exception\PaymentFailedException;
-use PayHub\Exception\ValidationException;
+use BarkaPay\Client;
+use BarkaPay\Enum\PaymentStatus;
+use BarkaPay\Exception\BarkaPayException;
+use BarkaPay\Exception\NetworkException;
+use BarkaPay\Exception\PaymentFailedException;
+use BarkaPay\Exception\ValidationException;
 
-$barkapay = new Client(apiKey: getenv('PAYHUB_API_KEY') ?: null, country: 'bf');
+$barkapay = new Client(apiKey: getenv('BARKAPAY_API_KEY') ?: null, country: 'bf');
 
 // Your own reference. With `unique`, the API refuses a second payment carrying
 // the same id — which is what makes a manual retry safe.
@@ -45,7 +45,7 @@ try {
     // before trying again — never re-send blindly.
     fprintf(STDERR, "No response (request %s). Check payments->list(['order_id' => '%s']) first.\n", $e->getRequestId() ?? '?', $orderId);
     exit(1);
-} catch (PayHubException $e) {
+} catch (BarkaPayException $e) {
     fwrite(STDERR, 'barkapay error: ' . $e->getMessage() . "\n");
     exit(1);
 }

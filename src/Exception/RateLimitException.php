@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PayHub\Exception;
+namespace BarkaPay\Exception;
 
 /**
  * 429 — rate limit reached. The request was not processed; wait

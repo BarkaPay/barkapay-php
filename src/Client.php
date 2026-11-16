@@ -2,26 +2,26 @@
 
 declare(strict_types=1);
 
-namespace PayHub;
+namespace BarkaPay;
 
-use PayHub\DTO\RateLimit;
-use PayHub\Exception\ApiException;
-use PayHub\Exception\ConfigurationException;
-use PayHub\Exception\NetworkException;
-use PayHub\Http\CurlClient;
-use PayHub\Http\HttpClientInterface;
-use PayHub\Resources\Balance;
-use PayHub\Resources\Operators;
-use PayHub\Resources\PaymentLinks;
-use PayHub\Resources\Payments;
-use PayHub\Resources\Transfers;
-use PayHub\Util\Coerce;
+use BarkaPay\DTO\RateLimit;
+use BarkaPay\Exception\ApiException;
+use BarkaPay\Exception\ConfigurationException;
+use BarkaPay\Exception\NetworkException;
+use BarkaPay\Http\CurlClient;
+use BarkaPay\Http\HttpClientInterface;
+use BarkaPay\Resources\Balance;
+use BarkaPay\Resources\Operators;
+use BarkaPay\Resources\PaymentLinks;
+use BarkaPay\Resources\Payments;
+use BarkaPay\Resources\Transfers;
+use BarkaPay\Util\Coerce;
 
 /**
  * Entry point to the barkapay API.
  *
  * ```php
- * $barkapay = new \PayHub\Client(apiKey: 'key_id:secret', country: 'bf');
+ * $barkapay = new \BarkaPay\Client(apiKey: 'key_id:secret', country: 'bf');
  * $payment = $barkapay->payments->create([
  *     'operator'     => 'ORANGE',
  *     'phone_number' => '74123456',
@@ -34,7 +34,7 @@ use PayHub\Util\Coerce;
 final class Client
 {
     /** SDK version, sent in the `User-Agent` header. */
-    public const VERSION = '1.1.0';
+    public const VERSION = '2.0.0';
 
     public const DEFAULT_BASE_URL = 'https://hub.barkapay.com';
 
@@ -155,7 +155,7 @@ final class Client
 
     private static function userAgent(): string
     {
-        return 'PayHub-PHP/' . self::VERSION . ' PHP/' . PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION;
+        return 'barkapay-php/' . self::VERSION . ' php/' . PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION;
     }
 
     private static function buildAuthorization(

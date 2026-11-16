@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace PayHub\Tests;
+namespace BarkaPay\Tests;
 
-use PayHub\Client;
-use PayHub\DTO\PaymentLink;
-use PayHub\Enum\PaymentLinkStatus;
-use PayHub\Enum\PaymentStatus;
-use PayHub\Http\Response;
-use PayHub\Tests\Support\FakeHttpClient;
+use BarkaPay\Client;
+use BarkaPay\DTO\PaymentLink;
+use BarkaPay\Enum\PaymentLinkStatus;
+use BarkaPay\Enum\PaymentStatus;
+use BarkaPay\Http\Response;
+use BarkaPay\Tests\Support\FakeHttpClient;
 use PHPUnit\Framework\TestCase;
 
 final class PaymentLinksTest extends TestCase
@@ -29,7 +29,7 @@ final class PaymentLinksTest extends TestCase
         return $overrides + [
             'public_id' => self::ID,
             'slug' => '9j32HfkT2mQx4',
-            'url' => 'https://checkout.payhub.africa/9j32HfkT2mQx4',
+            'url' => 'https://checkout.barkapay.com/9j32HfkT2mQx4',
             'status' => 'active',
             'source' => 'api',
             'usage' => 'single',
@@ -82,7 +82,7 @@ final class PaymentLinksTest extends TestCase
         self::assertInstanceOf(PaymentLink::class, $link);
         self::assertSame(self::ID, $link->publicId);
         self::assertSame('9j32HfkT2mQx4', $link->slug);
-        self::assertSame('https://checkout.payhub.africa/9j32HfkT2mQx4', $link->url);
+        self::assertSame('https://checkout.barkapay.com/9j32HfkT2mQx4', $link->url);
         self::assertSame(PaymentLinkStatus::Active, $link->status);
         self::assertSame('active', $link->rawStatus);
         self::assertTrue($link->isPayable());

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PayHub\Exception;
+namespace BarkaPay\Exception;
 
 /**
  * 424 `transfer_failed` — the operator definitively refused the payout. The

@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace PayHub\Resources;
+namespace BarkaPay\Resources;
 
-use PayHub\ApiClient;
-use PayHub\DTO\PaymentCollection;
-use PayHub\DTO\PaymentLink;
-use PayHub\DTO\PaymentLinkCollection;
-use PayHub\Exception\ApiException;
-use PayHub\Exception\ConfigurationException;
-use PayHub\Exception\NetworkException;
-use PayHub\Util\Coerce;
+use BarkaPay\ApiClient;
+use BarkaPay\DTO\PaymentCollection;
+use BarkaPay\DTO\PaymentLink;
+use BarkaPay\DTO\PaymentLinkCollection;
+use BarkaPay\Exception\ApiException;
+use BarkaPay\Exception\ConfigurationException;
+use BarkaPay\Exception\NetworkException;
+use BarkaPay\Util\Coerce;
 
 /**
  * Payment links: durable URLs on the barkapay-hosted checkout. Your customer
@@ -92,7 +92,7 @@ final class PaymentLinks
      * `title`, `description`, `expires_at` and `redirect` (send `null` to
      * clear a nullable field). Amount, currency and usage are immutable. A
      * link that is neither active nor paused cannot be edited
-     * ({@see \PayHub\Exception\ValidationException}).
+     * ({@see \BarkaPay\Exception\ValidationException}).
      *
      * @param array<string, mixed> $params
      *
@@ -109,7 +109,7 @@ final class PaymentLinks
      * Cancel an active or paused link for good: the checkout refuses new
      * payments at once. Payments already made are not affected. Cancelling a
      * canceled link is a no-op; a paid or expired link cannot be canceled
-     * ({@see \PayHub\Exception\ValidationException}).
+     * ({@see \BarkaPay\Exception\ValidationException}).
      *
      * @throws ApiException           on any error returned by the API (see the typed subclasses)
      * @throws NetworkException       when no response was received

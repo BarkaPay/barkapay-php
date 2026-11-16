@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace PayHub\DTO;
+namespace BarkaPay\DTO;
 
-use PayHub\Util\Coerce;
+use BarkaPay\Util\Coerce;
 
 /**
  * One page of payments.

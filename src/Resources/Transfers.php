@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace PayHub\Resources;
+namespace BarkaPay\Resources;
 
-use PayHub\ApiClient;
-use PayHub\DTO\Transfer;
-use PayHub\DTO\TransferCollection;
-use PayHub\Exception\ApiException;
-use PayHub\Exception\ConfigurationException;
-use PayHub\Exception\NetworkException;
-use PayHub\Exception\NotFoundException;
-use PayHub\Util\Coerce;
+use BarkaPay\ApiClient;
+use BarkaPay\DTO\Transfer;
+use BarkaPay\DTO\TransferCollection;
+use BarkaPay\Exception\ApiException;
+use BarkaPay\Exception\ConfigurationException;
+use BarkaPay\Exception\NetworkException;
+use BarkaPay\Exception\NotFoundException;
+use BarkaPay\Util\Coerce;
 
 /**
  * Disbursements: pay out from your wallet to a mobile-money account.
@@ -36,13 +36,13 @@ final class Transfers
      * means the payout is in flight: never send it again — the verdict
      * arrives by webhook, or poll {@see get()}.
      *
-     * Errors: {@see \PayHub\Exception\InsufficientBalanceException} (400),
-     * {@see \PayHub\Exception\ConflictException} (409),
-     * {@see \PayHub\Exception\TransferFailedException} (424, the recorded
+     * Errors: {@see \BarkaPay\Exception\InsufficientBalanceException} (400),
+     * {@see \BarkaPay\Exception\ConflictException} (409),
+     * {@see \BarkaPay\Exception\TransferFailedException} (424, the recorded
      * attempt is on `getTransfer()`).
      *
      * This call is never replayed after a timeout or a 5xx (it could pay
-     * twice): on {@see \PayHub\Exception\NetworkException}, look the transfer
+     * twice): on {@see \BarkaPay\Exception\NetworkException}, look the transfer
      * up with `list(['order_id' => $orderId])` before trying again.
      *
      * @param array<string, mixed> $params

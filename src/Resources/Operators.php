@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace PayHub\Resources;
+namespace BarkaPay\Resources;
 
-use PayHub\ApiClient;
-use PayHub\Exception\ApiException;
-use PayHub\Exception\ConfigurationException;
-use PayHub\Exception\NetworkException;
-use PayHub\Util\Coerce;
+use BarkaPay\ApiClient;
+use BarkaPay\Exception\ApiException;
+use BarkaPay\Exception\ConfigurationException;
+use BarkaPay\Exception\NetworkException;
+use BarkaPay\Util\Coerce;
 
 final class Operators
 {

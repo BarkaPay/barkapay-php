@@ -1,6 +1,6 @@
 # barkapay PHP SDK
 
-Official PHP client for the [barkapay API](https://payhub.africa/developers) — mobile-money
+Official PHP client for the [barkapay API](https://barkapay.com/developers) — mobile-money
 collections, payouts and hosted payment links across West Africa, behind one API.
 
 - **Zero runtime dependencies** (just `ext-curl` + `ext-json`) — safe to embed inside WordPress / WooCommerce.
@@ -17,17 +17,17 @@ PHP **8.1+** with the `curl` and `json` extensions.
 ## Install
 
 ```bash
-composer require barkapay/payhub-php
+composer require barkapay/barkapay-php
 ```
 
 ## Quick start
 
 ```php
-use PayHub\Client;
+use BarkaPay\Client;
 
 $barkapay = new Client(
-    apiKey: getenv('PAYHUB_API_KEY') ?: null, // the "key_id:secret" pair from the dashboard
-    country: 'bf',                            // default country, overridable per call
+    apiKey: getenv('BARKAPAY_API_KEY') ?: null, // the "key_id:secret" pair from the dashboard
+    country: 'bf',                              // default country, overridable per call
 );
 
 $payment = $barkapay->payments->create([
@@ -51,8 +51,8 @@ client's default: `$barkapay->balance->get('sn')`.
 ## Payments
 
 ```php
-use PayHub\Enum\PaymentStatus;
-use PayHub\Exception\PaymentFailedException;
+use BarkaPay\Enum\PaymentStatus;
+use BarkaPay\Exception\PaymentFailedException;
 
 try {
     $payment = $barkapay->payments->create([
@@ -113,7 +113,7 @@ foreach ($page as $payment) {
 - `EXPIRED` means the payer never completed (distinct from `FAILED`, a real refusal).
   `$payment->isFinal()` is true for `SUCCESSFUL`, `FAILED`, `EXPIRED` and `CANCELED`.
 - On a failed payment, `reasonCode` is a stable code you can branch on
-  (`PayHub\Enum\ReasonCode`), `reason` its English sentence and `providerReason` the operator's
+  (`BarkaPay\Enum\ReasonCode`), `reason` its English sentence and `providerReason` the operator's
   own words. **The status is the verdict**; the reason code is only an indication.
 - A status this SDK version does not know yet gives `$payment->status === null`;
   `$payment->rawStatus` always holds the string the API sent.
@@ -165,9 +165,9 @@ echo $payments->paymentLink?->stats?->totalCollected, PHP_EOL;
 ## Transfers
 
 ```php
-use PayHub\Exception\ConflictException;
-use PayHub\Exception\InsufficientBalanceException;
-use PayHub\Exception\TransferFailedException;
+use BarkaPay\Exception\ConflictException;
+use BarkaPay\Exception\InsufficientBalanceException;
+use BarkaPay\Exception\TransferFailedException;
 
 try {
     $transfer = $barkapay->transfers->create([
@@ -224,14 +224,14 @@ Every delivery is signed with the `Barkapay-Signature` header. Verify it against
 request body, with the signing secret (`whsec_…`) of the webhook:
 
 ```php
-use PayHub\Exception\SignatureVerificationException;
-use PayHub\Webhook;
+use BarkaPay\Exception\SignatureVerificationException;
+use BarkaPay\Webhook;
 
 $payload = file_get_contents('php://input') ?: '';
 $header  = $_SERVER['HTTP_BARKAPAY_SIGNATURE'] ?? '';
 
 try {
-    $event = Webhook::parse($payload, $header, getenv('PAYHUB_WEBHOOK_SECRET') ?: '');
+    $event = Webhook::parse($payload, $header, getenv('BARKAPAY_WEBHOOK_SECRET') ?: '');
 } catch (SignatureVerificationException $e) {
     http_response_code(400);
     exit;
@@ -256,7 +256,7 @@ http_response_code(200);
 
 ## Errors
 
-Every error returned by the API throws an exception extending `PayHub\Exception\ApiException`:
+Every error returned by the API throws an exception extending `BarkaPay\Exception\ApiException`:
 
 | Exception | HTTP | When |
 |---|---|---|
@@ -274,12 +274,12 @@ Every error returned by the API throws an exception extending `PayHub\Exception\
 
 Outside of API responses: `NetworkException` (no response received), `ConfigurationException`
 (invalid argument or client configuration) and `SignatureVerificationException` (webhooks).
-Catch everything the SDK throws with `PayHub\Exception\PayHubException`.
+Catch everything the SDK throws with `BarkaPay\Exception\BarkaPayException`.
 
 ```php
-use PayHub\Exception\ApiException;
-use PayHub\Exception\NetworkException;
-use PayHub\Exception\ValidationException;
+use BarkaPay\Exception\ApiException;
+use BarkaPay\Exception\NetworkException;
+use BarkaPay\Exception\ValidationException;
 
 try {
     $barkapay->payments->create($params);
@@ -361,10 +361,10 @@ A `RateLimitException` carries the same information: `getRetryAfter()` (seconds)
 ## Configuration
 
 ```php
-use PayHub\Client;
+use BarkaPay\Client;
 
 $barkapay = new Client(
-    apiKey:         getenv('PAYHUB_API_KEY') ?: null,
+    apiKey:         getenv('BARKAPAY_API_KEY') ?: null,
     country:        'bf',
     baseUrl:        'https://hub.barkapay.com', // default
     maxRetries:     2,     // 0 disables automatic retries
@@ -379,7 +379,7 @@ $barkapay = new Client(
 on another host. It is always refused for a barkapay host.
 
 To use your own HTTP stack, pass `httpClient:` an implementation of
-`PayHub\Http\HttpClientInterface` (it must verify TLS and must not follow redirects). The
+`BarkaPay\Http\HttpClientInterface` (it must verify TLS and must not follow redirects). The
 default transport accepts a custom CA bundle — `new CurlClient(caBundle: '/path/cacert.pem')` —
 and offers no way to turn certificate verification off.
 
@@ -399,23 +399,27 @@ and offers no way to turn certificate verification off.
   before any request; a country code is two letters.
 - See [SECURITY.md](SECURITY.md) to report a vulnerability.
 
-## Upgrading from 1.0
+## Upgrading from 1.x
 
-1.1 is backward compatible. Worth knowing:
+2.0 is the same SDK under its final name: the package, the namespace and one interface were
+renamed, nothing else changed in the API you call.
 
-- writes are no longer replayed after a network error, a timeout or a 503 (they could be
-  executed twice) — only after a 429 asking for 10 s or less;
-- the default timeout is 40 s (was 30 s) and `maxRetryDelay` 10 s;
-- `baseUrl` must be `https://` unless it is a loopback host or you pass your own `httpClient`;
-- `Webhook::verify()` / `parse()` throw `ConfigurationException` for an empty secret or a
-  tolerance of 0 or less (0 used to switch the replay check off);
-- `EXPIRED` payments and `UNCERTAIN` transfers now have an enum case (they used to hydrate as
-  `status === null`);
-- the webhook header is `Barkapay-Signature` (`$_SERVER['HTTP_BARKAPAY_SIGNATURE']`) — the old
-  `PayHub-Signature` name is no longer sent;
-- deduplicate webhooks on `event_id`.
+```bash
+composer remove barkapay/payhub-php
+composer require barkapay/barkapay-php:^2.0
+```
 
-See [CHANGELOG.md](CHANGELOG.md) for the full list.
+- namespace `PayHub\` → `BarkaPay\` (a project-wide search and replace of `PayHub\` is enough);
+- `PayHub\Exception\PayHubException` → `BarkaPay\Exception\BarkaPayException`;
+- `Webhook::LEGACY_SIGNATURE_HEADER` is removed: the API only sends `Barkapay-Signature`
+  (`$_SERVER['HTTP_BARKAPAY_SIGNATURE']`);
+- the `User-Agent` sent to the API is now `barkapay-php/2.0.0 …`;
+- the examples read `BARKAPAY_API_KEY` and `BARKAPAY_WEBHOOK_SECRET`.
+
+Still on 1.0? Also read the 1.1 notes in [CHANGELOG.md](CHANGELOG.md): writes are no longer
+replayed after a network error, a timeout or a 503 (they could be executed twice), the default
+timeout is 40 s, `baseUrl` must be `https://`, an empty webhook secret is refused, `EXPIRED`
+payments and `UNCERTAIN` transfers have an enum case. Deduplicate webhooks on `event_id`.
 
 ## License
 

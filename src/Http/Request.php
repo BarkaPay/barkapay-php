@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PayHub\Http;
+namespace BarkaPay\Http;
 
 /**
  * An outbound HTTP request. Plain value object so a custom

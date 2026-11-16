@@ -3,15 +3,15 @@
 declare(strict_types=1);
 
 // Minimal webhook receiver. Mount this at the URL registered on your API
-// application, with PAYHUB_WEBHOOK_SECRET set to that webhook's signing secret
+// application, with BARKAPAY_WEBHOOK_SECRET set to that webhook's signing secret
 // (whsec_…).
 
 require __DIR__ . '/../vendor/autoload.php';
 
-use PayHub\Exception\SignatureVerificationException;
-use PayHub\Webhook;
+use BarkaPay\Exception\SignatureVerificationException;
+use BarkaPay\Webhook;
 
-$secret = getenv('PAYHUB_WEBHOOK_SECRET');
+$secret = getenv('BARKAPAY_WEBHOOK_SECRET');
 if (!is_string($secret) || $secret === '') {
     // Never fall back to a default secret: anyone could forge a delivery.
     http_response_code(500);

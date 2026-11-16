@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace PayHub\Tests;
+namespace BarkaPay\Tests;
 
-use PayHub\Client;
-use PayHub\Exception\ConfigurationException;
-use PayHub\Exception\PayHubException;
-use PayHub\Http\CurlClient;
-use PayHub\Http\Request;
-use PayHub\Tests\Support\FakeHttpClient;
+use BarkaPay\Client;
+use BarkaPay\Exception\BarkaPayException;
+use BarkaPay\Exception\ConfigurationException;
+use BarkaPay\Http\CurlClient;
+use BarkaPay\Http\Request;
+use BarkaPay\Tests\Support\FakeHttpClient;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -87,7 +87,7 @@ final class SecurityTest extends TestCase
 
         $reachable = self::reachable($client) . var_export($client, true);
 
-        self::assertStringContainsString('PayHub\\ApiClient', $reachable);
+        self::assertStringContainsString('BarkaPay\\ApiClient', $reachable);
         self::assertStringContainsString('hub.barkapay.com', $reachable);
         self::assertStringNotContainsString('SUPERSECRETVALUE', $reachable);
         self::assertStringNotContainsString('PUBLICPART', $reachable);
@@ -166,7 +166,7 @@ final class SecurityTest extends TestCase
             try {
                 $call();
                 self::fail('Expected an exception.');
-            } catch (PayHubException $e) {
+            } catch (BarkaPayException $e) {
                 $text = $e->getMessage() . $e->getTraceAsString() . print_r($e, true);
                 self::assertStringNotContainsString('SUPERSECRETVALUE', $text);
             }
@@ -194,9 +194,9 @@ final class SecurityTest extends TestCase
             }
 
             try {
-                \PayHub\Webhook::parse('{}', 'garbage', 'whsec_SUPERSECRETVALUE');
+                \BarkaPay\Webhook::parse('{}', 'garbage', 'whsec_SUPERSECRETVALUE');
                 self::fail('Expected SignatureVerificationException.');
-            } catch (\PayHub\Exception\SignatureVerificationException $e) {
+            } catch (\BarkaPay\Exception\SignatureVerificationException $e) {
                 self::assertStringNotContainsString('SUPERSECRETVALUE', $e->getTraceAsString() . print_r($e->getTrace(), true));
             }
         } finally {
@@ -523,7 +523,7 @@ final class SecurityTest extends TestCase
                 try {
                     (new CurlClient(1.0, 1.0))->send($request);
                     self::fail('Expected NetworkException.');
-                } catch (\PayHub\Exception\NetworkException $e) {
+                } catch (\BarkaPay\Exception\NetworkException $e) {
                     // The failure is raised by our own code, with nothing chained to it.
                     self::assertNull($e->getPrevious());
 

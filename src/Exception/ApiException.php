@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace PayHub\Exception;
+namespace BarkaPay\Exception;
 
-use PayHub\DTO\Payment;
-use PayHub\DTO\Transfer;
-use PayHub\Util\Headers;
+use BarkaPay\DTO\Payment;
+use BarkaPay\DTO\Transfer;
+use BarkaPay\Util\Headers;
 
 /**
  * Base class for every error returned by the API (any response with the
@@ -21,7 +21,7 @@ use PayHub\Util\Headers;
  *  - {@see getData()}       — the envelope `data` (failed payment / transfer snapshot);
  *  - {@see getRetryAfter()} — seconds to wait, when the API sent `Retry-After`.
  */
-class ApiException extends \RuntimeException implements PayHubException
+class ApiException extends \RuntimeException implements BarkaPayException
 {
     /** Longest raw body kept on the exception (an HTML error page can be huge). */
     private const MAX_BODY_LENGTH = 16384;

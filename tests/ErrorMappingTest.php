@@ -2,28 +2,28 @@
 
 declare(strict_types=1);
 
-namespace PayHub\Tests;
+namespace BarkaPay\Tests;
 
-use PayHub\Client;
-use PayHub\Enum\PaymentStatus;
-use PayHub\Enum\ReasonCode;
-use PayHub\Enum\TransferStatus;
-use PayHub\Exception\ApiException;
-use PayHub\Exception\AuthenticationException;
-use PayHub\Exception\AuthorizationException;
-use PayHub\Exception\ConflictException;
-use PayHub\Exception\InsufficientBalanceException;
-use PayHub\Exception\NetworkException;
-use PayHub\Exception\NotFoundException;
-use PayHub\Exception\PayHubException;
-use PayHub\Exception\PaymentFailedException;
-use PayHub\Exception\RateLimitException;
-use PayHub\Exception\ServerException;
-use PayHub\Exception\ServiceUnavailableException;
-use PayHub\Exception\TransferFailedException;
-use PayHub\Exception\ValidationException;
-use PayHub\Http\Response;
-use PayHub\Tests\Support\FakeHttpClient;
+use BarkaPay\Client;
+use BarkaPay\Enum\PaymentStatus;
+use BarkaPay\Enum\ReasonCode;
+use BarkaPay\Enum\TransferStatus;
+use BarkaPay\Exception\ApiException;
+use BarkaPay\Exception\AuthenticationException;
+use BarkaPay\Exception\AuthorizationException;
+use BarkaPay\Exception\BarkaPayException;
+use BarkaPay\Exception\ConflictException;
+use BarkaPay\Exception\InsufficientBalanceException;
+use BarkaPay\Exception\NetworkException;
+use BarkaPay\Exception\NotFoundException;
+use BarkaPay\Exception\PaymentFailedException;
+use BarkaPay\Exception\RateLimitException;
+use BarkaPay\Exception\ServerException;
+use BarkaPay\Exception\ServiceUnavailableException;
+use BarkaPay\Exception\TransferFailedException;
+use BarkaPay\Exception\ValidationException;
+use BarkaPay\Http\Response;
+use BarkaPay\Tests\Support\FakeHttpClient;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -113,7 +113,7 @@ final class ErrorMappingTest extends TestCase
             self::fail('Expected ' . $expected);
         } catch (ApiException $e) {
             self::assertSame($expected, $e::class);
-            self::assertInstanceOf(PayHubException::class, $e);
+            self::assertInstanceOf(BarkaPayException::class, $e);
             self::assertSame($status, $e->getHttpStatus());
             self::assertSame($code, $e->getErrorCode());
             self::assertSame('Human message.', $e->getMessage());
@@ -433,7 +433,7 @@ final class ErrorMappingTest extends TestCase
             $client->ping();
             self::fail('Expected NetworkException.');
         } catch (NetworkException $e) {
-            self::assertInstanceOf(PayHubException::class, $e);
+            self::assertInstanceOf(BarkaPayException::class, $e);
             self::assertTrue($e->isConnectionFailure());
             self::assertSame(7, $e->getCode());
             self::assertNotNull($e->getRequestId());

@@ -4,18 +4,18 @@ declare(strict_types=1);
 
 // Pay out to a mobile-money account.
 //
-//   PAYHUB_API_KEY="key_id:secret" php examples/disburse.php
+//   BARKAPAY_API_KEY="key_id:secret" php examples/disburse.php
 
 require __DIR__ . '/../vendor/autoload.php';
 
-use PayHub\Client;
-use PayHub\Exception\ConflictException;
-use PayHub\Exception\InsufficientBalanceException;
-use PayHub\Exception\NetworkException;
-use PayHub\Exception\PayHubException;
-use PayHub\Exception\TransferFailedException;
+use BarkaPay\Client;
+use BarkaPay\Exception\BarkaPayException;
+use BarkaPay\Exception\ConflictException;
+use BarkaPay\Exception\InsufficientBalanceException;
+use BarkaPay\Exception\NetworkException;
+use BarkaPay\Exception\TransferFailedException;
 
-$barkapay = new Client(apiKey: getenv('PAYHUB_API_KEY') ?: null, country: 'bf');
+$barkapay = new Client(apiKey: getenv('BARKAPAY_API_KEY') ?: null, country: 'bf');
 
 $orderId = 'PAYOUT-' . bin2hex(random_bytes(6));
 
@@ -43,7 +43,7 @@ try {
     // doing anything else — sending it again could pay twice.
     fprintf(STDERR, "No response (request %s). Check transfers->list(['order_id' => '%s']) first.\n", $e->getRequestId() ?? '?', $orderId);
     exit(1);
-} catch (PayHubException $e) {
+} catch (BarkaPayException $e) {
     fwrite(STDERR, 'barkapay error: ' . $e->getMessage() . "\n");
     exit(1);
 }

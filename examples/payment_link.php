@@ -4,18 +4,18 @@ declare(strict_types=1);
 
 // Create a hosted payment link, then follow the payments made through it.
 //
-//   PAYHUB_API_KEY="key_id:secret" php examples/payment_link.php
+//   BARKAPAY_API_KEY="key_id:secret" php examples/payment_link.php
 //
 // The API application needs the scopes payment_links:create, payment_links:read
 // and payment_links:manage.
 
 require __DIR__ . '/../vendor/autoload.php';
 
-use PayHub\Client;
-use PayHub\Exception\PayHubException;
-use PayHub\Exception\ValidationException;
+use BarkaPay\Client;
+use BarkaPay\Exception\BarkaPayException;
+use BarkaPay\Exception\ValidationException;
 
-$barkapay = new Client(apiKey: getenv('PAYHUB_API_KEY') ?: null, country: 'bf');
+$barkapay = new Client(apiKey: getenv('BARKAPAY_API_KEY') ?: null, country: 'bf');
 
 try {
     $link = $barkapay->paymentLinks->create([
@@ -52,7 +52,7 @@ try {
 } catch (ValidationException $e) {
     fwrite(STDERR, 'Invalid request: ' . json_encode($e->getErrors()) . "\n");
     exit(1);
-} catch (PayHubException $e) {
+} catch (BarkaPayException $e) {
     fwrite(STDERR, 'barkapay error: ' . $e->getMessage() . "\n");
     exit(1);
 }

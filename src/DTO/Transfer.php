@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace PayHub\DTO;
+namespace BarkaPay\DTO;
 
-use PayHub\Enum\TransferStatus;
-use PayHub\Util\Coerce;
+use BarkaPay\Enum\TransferStatus;
+use BarkaPay\Util\Coerce;
 
 /**
  * A disbursement (transfer) as returned by the API. Documented fields are
@@ -20,7 +20,7 @@ final class Transfer
      * @param array<string, mixed>|null $orderData
      * @param array<string, mixed>      $raw
      * @param string|null               $rawStatus         status string as sent by the API (set even when `$status` is null)
-     * @param string|null               $reasonCode        stable failure code — see {@see \PayHub\Enum\ReasonCode}
+     * @param string|null               $reasonCode        stable failure code — see {@see \BarkaPay\Enum\ReasonCode}
      * @param string|null               $providerReason    the operator's own sentence — informational, not contractual
      * @param string|null               $providerReference reference of this payout on the operator side (set before it is sent)
      * @param string|null               $appLabel          label of the API application that created the transfer (creation responses only)

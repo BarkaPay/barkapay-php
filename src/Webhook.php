@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace PayHub;
+namespace BarkaPay;
 
-use PayHub\Exception\ConfigurationException;
-use PayHub\Exception\SignatureVerificationException;
-use PayHub\Util\Json;
+use BarkaPay\Exception\ConfigurationException;
+use BarkaPay\Exception\SignatureVerificationException;
+use BarkaPay\Util\Json;
 
 /**
  * Verify the signature of incoming webhooks.
@@ -17,7 +17,7 @@ use PayHub\Util\Json;
  * request body — not a re-encoded copy.
  *
  * ```php
- * $event = \PayHub\Webhook::parse(
+ * $event = \BarkaPay\Webhook::parse(
  *     file_get_contents('php://input') ?: '',
  *     $_SERVER['HTTP_BARKAPAY_SIGNATURE'] ?? '',
  *     $webhookSecret,
@@ -32,12 +32,6 @@ final class Webhook
 {
     /** The header carrying the signature. In `$_SERVER`: `HTTP_BARKAPAY_SIGNATURE`. */
     public const SIGNATURE_HEADER = 'Barkapay-Signature';
-
-    /**
-     * Name of the same header before 2026-11-15. No longer sent; kept so an
-     * endpoint can read both during a migration (`HTTP_PAYHUB_SIGNATURE`).
-     */
-    public const LEGACY_SIGNATURE_HEADER = 'PayHub-Signature';
 
     /** Maximum age (and clock skew) of a signature, in seconds. */
     public const DEFAULT_TOLERANCE = 300;

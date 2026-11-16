@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace PayHub\Tests;
+namespace BarkaPay\Tests;
 
-use PayHub\Exception\NetworkException;
-use PayHub\Http\CurlClient;
-use PayHub\Http\Request;
+use BarkaPay\Exception\NetworkException;
+use BarkaPay\Http\CurlClient;
+use BarkaPay\Http\Request;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -64,7 +64,7 @@ final class CurlClientTest extends TestCase
         }
     }
 
-    private function get(string $path): \PayHub\Http\Response
+    private function get(string $path): \BarkaPay\Http\Response
     {
         if (!\is_resource(self::$server)) {
             self::markTestSkipped('Cannot start a local PHP server here.');
