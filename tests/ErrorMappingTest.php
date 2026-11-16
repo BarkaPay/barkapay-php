@@ -88,7 +88,7 @@ final class ErrorMappingTest extends TestCase
         yield '409 exists' => [409, 'resource_already_exists', ConflictException::class];
         yield '422 validation' => [422, 'validation_error', ValidationException::class];
         yield '422 invalid input' => [422, 'invalid_input', ValidationException::class];
-        yield '422 unknown code' => [422, 'FEE_NOT_CONFIGURED', ValidationException::class];
+        yield '422 unknown code' => [422, 'a_code_from_the_future', ValidationException::class];
         yield '424 payment' => [424, 'payment_failed', PaymentFailedException::class];
         yield '424 transfer' => [424, 'transfer_failed', TransferFailedException::class];
         yield '429' => [429, 'too_many_requests', RateLimitException::class];

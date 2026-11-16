@@ -17,7 +17,8 @@ use PayHub\Exception\NetworkException;
  *  - return every HTTP response as a {@see Response}, whatever its status;
  *  - throw {@see NetworkException} when no response was received, flagging
  *    `connectionFailure: true` only when the request provably never left
- *    (DNS failure, refused connection): the SDK then knows a retry is safe.
+ *    (DNS failure, refused connection). The flag is information for the
+ *    caller: the SDK itself never replays a write on a network error.
  */
 interface HttpClientInterface
 {

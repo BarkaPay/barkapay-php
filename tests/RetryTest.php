@@ -15,8 +15,8 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * The retry policy is a money-safety property: a write is only replayed when
- * the API provably did not process it.
+ * The retry policy is a money-safety property: reads are retried, a write is
+ * replayed on 429 only (the API has no idempotency key).
  */
 final class RetryTest extends TestCase
 {
@@ -116,8 +116,12 @@ final class RetryTest extends TestCase
         yield 'create payment' => ['POST', ['payments']];
         yield 'create transfer' => ['POST', ['transfers']];
         yield 'confirm otp' => ['POST', ['payments', 'p1', 'confirm-otp']];
+        yield 'resend otp' => ['POST', ['payments', 'p1', 'resend-otp']];
+        yield 'create link' => ['POST', ['payments', 'links']];
         yield 'update link' => ['PATCH', ['payments', 'links', 'PL-1']];
         yield 'cancel link' => ['DELETE', ['payments', 'links', 'PL-1']];
+        yield 'pause link' => ['POST', ['payments', 'links', 'PL-1', 'pause']];
+        yield 'resume link' => ['POST', ['payments', 'links', 'PL-1', 'resume']];
     }
 
     /**
@@ -170,14 +174,38 @@ final class RetryTest extends TestCase
         }
     }
 
-    public function testWriteIsRetriedWhenTheConnectionWasNeverEstablished(): void
+    /**
+     * @param list<string> $segments
+     */
+    #[DataProvider('writes')]
+    public function testWriteIsNeverReplayedOnANetworkErrorOfAnyKind(string $method, array $segments): void
+    {
+        // Not even when the transport says the connection was never
+        // established: the rule is one line — writes are replayed on 429 only.
+        $http = new FakeHttpClient([
+            new NetworkException('Could not resolve host', 6, null, true),
+            FakeHttpClient::ok(),
+        ]);
+
+        try {
+            $this->api($http)->request($method, $segments, null, ['x' => 1]);
+            self::fail('Expected NetworkException.');
+        } catch (NetworkException $e) {
+            self::assertCount(1, $http->requests);
+            self::assertSame([], $this->sleeps);
+            // The information stays available for the caller's own decision.
+            self::assertTrue($e->isConnectionFailure());
+        }
+    }
+
+    public function testReadIsRetriedWhenTheConnectionCouldNotBeEstablished(): void
     {
         $http = new FakeHttpClient([
             new NetworkException('Could not resolve host', 6, null, true),
-            FakeHttpClient::ok(['transfer' => ['public_id' => 't1']]),
+            FakeHttpClient::ok(),
         ]);
 
-        $this->api($http)->request('POST', ['transfers'], null, ['x' => 1]);
+        $this->api($http)->request('GET', ['payments']);
 
         self::assertCount(2, $http->requests);
     }

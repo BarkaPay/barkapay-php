@@ -8,11 +8,11 @@ namespace PayHub\Exception;
  * The HTTP request never completed (DNS, connection, TLS, timeout): there is
  * no response to read.
  *
- * ⚠️ For a request that moves money (`payments->create()`,
- * `transfers->create()`, `payments->confirmOtp()`), a timeout does NOT mean
- * nothing happened — the API may have processed it. Look the operation up by
- * your `order.id` (`list(['order_id' => …])`) before trying again, unless
- * {@see isConnectionFailure()} is true.
+ * The SDK retries reads on its own, never writes. For a request that moves
+ * money (`payments->create()`, `transfers->create()`,
+ * `payments->confirmOtp()`), a timeout does NOT mean nothing happened — the
+ * API may have processed it. Look the operation up by your `order.id`
+ * (`list(['order_id' => …])`) before sending it again.
  */
 final class NetworkException extends \RuntimeException implements PayHubException
 {
@@ -21,7 +21,7 @@ final class NetworkException extends \RuntimeException implements PayHubExceptio
     /**
      * @param bool $connectionFailure true only when the request provably never
      *                                reached the API (DNS failure, refused
-     *                                connection, failed TLS handshake)
+     *                                connection)
      */
     public function __construct(
         string $message = '',
@@ -33,8 +33,9 @@ final class NetworkException extends \RuntimeException implements PayHubExceptio
     }
 
     /**
-     * True when the connection was never established, so the API received
-     * nothing: repeating the request cannot duplicate anything.
+     * True when the connection was never established (DNS failure, refused
+     * connection): the API received nothing. Information for your own retry
+     * decision — the SDK does not replay a write on it.
      */
     public function isConnectionFailure(): bool
     {

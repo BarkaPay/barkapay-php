@@ -16,8 +16,6 @@ Backward compatible with 1.0.0. Brings the SDK in line with the current API and 
   `update()`, `cancel()`, `pause()`, `resume()` and `listPayments()`, with the `PaymentLink`,
   `PaymentLinkAmount`, `PaymentLinkStats` and `PaymentLinkCollection` objects and the
   `PaymentLinkStatus` enum.
-- `payments->create()` accepts `channel`: `direct` (default) or `hosted`. With `hosted` a
-  payment link is created instead and returned in the new `Payment::$paymentLink`.
 - `Payment` and `Transfer`: `reasonCode`, `providerReason`, `providerReference`, `rawStatus`,
   plus `linkPublicId` and `redirectUrl` on payments and `appLabel` on transfers; `isFinal()` and
   `isSuccessful()` helpers.
@@ -32,8 +30,8 @@ Backward compatible with 1.0.0. Brings the SDK in line with the current API and 
   response) and `Client::lastRequestId()`.
 - `Pagination::hasMore()`; `PaymentCollection::$paymentLink` (set by
   `paymentLinks->listPayments()`).
-- `Webhook::SIGNATURE_HEADER` (`Barkapay-Signature`) and `Webhook::LEGACY_SIGNATURE_HEADER`;
-  several `v1` signatures in one header are accepted (secret rotation).
+- `Webhook::SIGNATURE_HEADER` (`Barkapay-Signature`) and `Webhook::LEGACY_SIGNATURE_HEADER`.
+  A header carrying several `v1` signatures is tolerated (the API sends one).
 - `Client` options `connectTimeout` and `maxRetryDelay`; `CurlClient` option `caBundle`.
 - `NetworkException::isConnectionFailure()` and `getRequestId()`; `Request::redactedHeaders()`;
   `Response::header()`.
@@ -43,8 +41,9 @@ Backward compatible with 1.0.0. Brings the SDK in line with the current API and 
 
 - **Retries are now safe for money.** Reads are retried on network errors and on
   429 / 502 / 503 / 504. Writes (payments, transfers, OTP confirmation, payment-link changes)
-  are retried only when the API provably did not process them: a 429, or a connection that was
-  never established. They are no longer replayed after a timeout or a 503.
+  are retried on 429 only — the one case where the API did not process the request. They are
+  no longer replayed after a network error, a timeout or a 503: the API has no idempotency key,
+  and a blind replay could move money twice.
 - Retries wait with exponential backoff and jitter and honour `Retry-After`; when the API asks
   for a longer wait than `maxRetryDelay` (5 s by default) the error is thrown immediately.
 - The webhook header is now documented as `Barkapay-Signature` (renamed by the API on
@@ -85,8 +84,6 @@ Backward compatible with 1.0.0. Brings the SDK in line with the current API and 
 - Webhooks: an empty signing secret never verifies; the header parser is strict (single
   numeric timestamp, 64-hex signatures, bounded length); all candidate signatures are compared
   in constant time.
-- `channel: hosted` is never sent to `POST /payments`: the API ignores that field there and
-  would execute a direct payment instead of returning a link.
 - A timeout of `0` (wait forever) is no longer passed to curl.
 
 ## [1.0.0] - 2026-06-27

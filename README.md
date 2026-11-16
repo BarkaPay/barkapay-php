@@ -157,10 +157,8 @@ echo $payments->paymentLink?->stats?->totalCollected, PHP_EOL;
   several countries, call it once per country; the link's `stats` are global either way.
 - Required scopes on the API application: `payment_links:create`, `payment_links:read`,
   `payment_links:manage`.
-- Shortcut: `payments->create(['channel' => 'hosted', …link parameters…])` creates the same
-  link and returns it in `$payment->paymentLink` (no payment exists yet, so the other fields
-  are empty). `channel` defaults to `direct`, an ordinary payment. The API itself has one
-  endpoint per kind: `paymentLinks->create()` is the explicit form.
+- `payments->create()` is always a direct payment: hosted checkout goes through this resource
+  only.
 
 ## Transfers
 
@@ -308,19 +306,19 @@ The SDK retries on its own only what cannot duplicate an operation:
 | Request | Retried on |
 |---|---|
 | Reads (`get`, `list`, `balance`, `operators`, `ping`, `me`) | network errors, 429, 502, 503, 504 |
-| Writes (`create`, `confirmOtp`, `resendOtp`, `update`, `cancel`, `pause`, `resume`) | 429 (the request was not processed) and connections that were never established |
+| Writes (`create`, `confirmOtp`, `resendOtp`, `update`, `cancel`, `pause`, `resume`) | 429 only — the request was not processed |
 
 Waits use exponential backoff with jitter and honour `Retry-After`. If the API asks for a longer
 wait than `maxRetryDelay` (5 s by default), the error is thrown at once with `getRetryAfter()`
 set, instead of blocking your request.
 
-**A timeout or a 5xx on a payment or a transfer is never retried automatically**: the API has no
-idempotency key, and the operation may have gone through. To replay safely yourself:
+**A network error, a timeout or a 5xx on a payment or a transfer is never retried
+automatically**: the API has no idempotency key, and the operation may have gone through. To
+replay safely yourself:
 
 1. always send your own reference in `order.id`, with `order.unique => true` — the API then
    refuses a second operation with the same id (`ConflictException`);
-2. on `NetworkException` (unless `$e->isConnectionFailure()` is true) or
-   `ServiceUnavailableException`, look the operation up first:
+2. on `NetworkException` or `ServiceUnavailableException`, look the operation up first:
    `payments->list(['order_id' => $orderId])` / `transfers->list(['order_id' => $orderId])`;
 3. only create it again if that list is empty.
 
@@ -382,7 +380,8 @@ and offers no way to turn certificate verification off.
 
 1.1 is backward compatible. Worth knowing:
 
-- writes are no longer replayed after a timeout or a 503 (they could be executed twice);
+- writes are no longer replayed after a network error, a timeout or a 503 (they could be
+  executed twice) — only after a 429;
 - `EXPIRED` payments and `UNCERTAIN` transfers now have an enum case (they used to hydrate as
   `status === null`);
 - the webhook header is `Barkapay-Signature` (`$_SERVER['HTTP_BARKAPAY_SIGNATURE']`) — the old

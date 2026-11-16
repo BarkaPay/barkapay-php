@@ -7,7 +7,6 @@ namespace PayHub\Resources;
 use PayHub\ApiClient;
 use PayHub\DTO\Payment;
 use PayHub\DTO\PaymentCollection;
-use PayHub\DTO\PaymentLink;
 use PayHub\Exception\ApiException;
 use PayHub\Exception\ConfigurationException;
 use PayHub\Exception\NetworkException;
@@ -46,13 +45,8 @@ final class Payments
      * twice): on {@see \PayHub\Exception\NetworkException}, look the payment up
      * with `list(['order_id' => $orderId])` before trying again.
      *
-     * **`channel`** — `direct` (the default) is the payment described above.
-     * With `'channel' => 'hosted'` nobody is charged: the other parameters are
-     * those of {@see PaymentLinks::create()} (`title`, `amount` => [`type`, …],
-     * …), a payment link is created, and the returned object only carries it
-     * in `$payment->paymentLink` (share its `url`). This is a shortcut kept in
-     * the SDK — the API has one endpoint per kind — and
-     * `$client->paymentLinks->create()` is the explicit way to do the same.
+     * This is always a direct payment. For a hosted checkout page, create a
+     * payment link with `$client->paymentLinks->create()`.
      *
      * @param array<string, mixed> $params
      *
@@ -62,19 +56,6 @@ final class Payments
      */
     public function create(array $params, ?string $country = null): Payment
     {
-        $channel = $params['channel'] ?? null;
-        if (\is_string($channel) && strtolower(trim($channel)) === 'hosted') {
-            // `channel` is an SDK-level switch: the API ignores the field on
-            // POST /payments and would charge the payer directly, so a hosted
-            // request is never sent there.
-            unset($params['channel']);
-            $env = $this->api->request('POST', ['payments', 'links'], $country, $params);
-
-            return Payment::hosted(
-                PaymentLink::fromArray(Coerce::arr(Coerce::arr($env, 'data') ?? [], 'payment_link') ?? []),
-            );
-        }
-
         return Payment::fromArray($this->unwrap($this->api->request('POST', ['payments'], $country, $params)));
     }
 
