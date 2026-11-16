@@ -34,8 +34,9 @@ use PayHub\Util\Secret;
  *    could move money twice.
  *
  * Waits use exponential backoff with jitter and honour `Retry-After`. When the
- * API asks for a longer wait than `$maxRetryDelay`, the error is thrown
- * immediately instead of blocking the caller.
+ * API asks for a longer wait than `$maxRetryDelay` (10 s by default; never
+ * more than 10 s for a write), the error is thrown immediately instead of
+ * blocking the caller.
  *
  * @internal
  */
@@ -48,6 +49,13 @@ final class ApiClient
 
     /** Statuses worth retrying for a read. */
     private const TRANSIENT_STATUSES = [429, 502, 503, 504];
+
+    /**
+     * Longest `Retry-After` a write is ever replayed after, whatever
+     * `$maxRetryDelay` says: money is not sent from a call that has been
+     * asleep for longer. The API asks for 10 s on a real 429.
+     */
+    public const MAX_WRITE_RETRY_AFTER = 10.0;
 
     /** The `Authorization` header value — see {@see Secret} for why it is not a plain property. */
     private readonly Secret $authorization;
@@ -67,7 +75,7 @@ final class ApiClient
         private readonly string $defaultCountry,
         private readonly int $maxRetries,
         private readonly string $userAgent,
-        private readonly float $maxRetryDelay = 5.0,
+        private readonly float $maxRetryDelay = 10.0,
         private readonly ?\Closure $sleeper = null,
     ) {
         $this->authorization = new Secret($authorization);
@@ -152,7 +160,7 @@ final class ApiClient
             }
 
             if ($attempt < $this->maxRetries && $this->isRetryable($response->statusCode, $isRead)) {
-                $delay = $this->retryDelay($attempt, $response);
+                $delay = $this->retryDelay($attempt, $response, $isRead);
                 if ($delay !== null) {
                     ++$attempt;
                     $this->wait($delay);
@@ -280,14 +288,15 @@ final class ApiClient
      * Seconds to wait before the next attempt, or null when the API asks for
      * a longer wait than the caller accepts (the error is then surfaced).
      */
-    private function retryDelay(int $attempt, Response $response): ?float
+    private function retryDelay(int $attempt, Response $response, bool $isRead): ?float
     {
         $retryAfter = $this->retryAfter($response);
         if ($retryAfter === null) {
             return $this->backoff($attempt);
         }
 
-        if ($retryAfter > $this->maxRetryDelay) {
+        $limit = $isRead ? $this->maxRetryDelay : min($this->maxRetryDelay, self::MAX_WRITE_RETRY_AFTER);
+        if ($retryAfter > $limit) {
             return null;
         }
 

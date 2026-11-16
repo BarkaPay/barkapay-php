@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PayHub\Tests;
 
+use PayHub\Exception\ConfigurationException;
 use PayHub\Exception\SignatureVerificationException;
 use PayHub\Webhook;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -55,8 +56,10 @@ final class WebhookTest extends TestCase
         // hex(HMAC-SHA256(key = "whsec_k", message = '1700000000.{"a":1}')), computed outside PHP.
         $header = 't=1700000000,v1=a252a4340d8bbbdbac8643a2812cc7d628ad79bfba544bff054ac2fa10f795a2';
 
-        self::assertTrue(Webhook::verify('{"a":1}', $header, 'whsec_k', 0));
-        self::assertSame(['a' => 1], Webhook::parse('{"a":1}', $header, 'whsec_k', 0));
+        $window = time() - 1700000000 + 60;
+
+        self::assertTrue(Webhook::verify('{"a":1}', $header, 'whsec_k', $window));
+        self::assertSame(['a' => 1], Webhook::parse('{"a":1}', $header, 'whsec_k', $window));
     }
 
     public function testRejectsTamperedPayload(): void
@@ -94,19 +97,48 @@ final class WebhookTest extends TestCase
         // Custom window.
         self::assertTrue(Webhook::verify(self::PAYLOAD, self::sign(self::PAYLOAD, $now - 1000), self::SECRET, 3600));
         self::assertFalse(Webhook::verify(self::PAYLOAD, self::sign(self::PAYLOAD, $now - 30), self::SECRET, 10));
-        // 0 disables the freshness check (documented escape hatch).
-        self::assertTrue(Webhook::verify(self::PAYLOAD, self::sign(self::PAYLOAD, 1700000000), self::SECRET, 0));
     }
 
-    public function testAnEmptySecretNeverVerifies(): void
+    /**
+     * @return iterable<string, array{int}>
+     */
+    public static function nonPositiveTolerances(): iterable
     {
-        // HMAC with an empty key is computable by anyone.
+        yield 'zero' => [0];
+        yield 'negative' => [-1];
+        yield 'very negative' => [PHP_INT_MIN];
+    }
+
+    #[DataProvider('nonPositiveTolerances')]
+    public function testAToleranceThatWouldDisableTheReplayWindowIsRefused(int $tolerance): void
+    {
+        $stale = self::sign(self::PAYLOAD, 1700000000);
+
+        try {
+            Webhook::verify(self::PAYLOAD, $stale, self::SECRET, $tolerance);
+            self::fail('verify() accepted a non-positive tolerance.');
+        } catch (ConfigurationException) {
+        }
+
+        $this->expectException(ConfigurationException::class);
+        Webhook::parse(self::PAYLOAD, $stale, self::SECRET, $tolerance);
+    }
+
+    public function testAnEmptySecretIsRefusedLoudly(): void
+    {
+        // HMAC with an empty key is computable by anyone: a missing secret is
+        // a configuration mistake, never a quiet `false`.
         $forged = self::sign(self::PAYLOAD, time(), '');
 
-        self::assertFalse(Webhook::verify(self::PAYLOAD, $forged, ''));
-        self::assertFalse(Webhook::verify(self::PAYLOAD, $forged, '   '));
+        foreach (['', '   '] as $secret) {
+            try {
+                Webhook::verify(self::PAYLOAD, $forged, $secret);
+                self::fail('verify() accepted an empty secret.');
+            } catch (ConfigurationException) {
+            }
+        }
 
-        $this->expectException(SignatureVerificationException::class);
+        $this->expectException(ConfigurationException::class);
         Webhook::parse(self::PAYLOAD, $forged, '');
     }
 
