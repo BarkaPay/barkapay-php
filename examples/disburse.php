@@ -22,7 +22,7 @@ $orderId = 'PAYOUT-' . bin2hex(random_bytes(6));
 try {
     $transfer = $barkapay->transfers->create([
         'operator' => 'ORANGE',
-        'phone_number' => '50123456789',
+        'phone_number' => '74123456',
         'amount' => 50000,
         'order' => ['id' => $orderId, 'unique' => true],
     ]);

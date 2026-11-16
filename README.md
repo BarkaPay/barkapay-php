@@ -31,8 +31,8 @@ $barkapay = new Client(
 );
 
 $payment = $barkapay->payments->create([
-    'operator'     => 'ORANGE',
-    'phone_number' => '50123456789',
+    'operator'     => 'ORANGE',       // upper case, as listed by operators->info()
+    'phone_number' => '74123456',     // national format, no country code
     'amount'       => 10000,
     'otp'          => '123456',       // operators that take the payer's code up-front (e.g. ORANGE)
     'order'        => ['id' => 'ORDER-2026-001', 'unique' => true],
@@ -104,6 +104,9 @@ foreach ($page as $payment) {
 }
 ```
 
+- `phone_number` is the national number, digits only, **without the country code**: 8 digits in
+  Burkina Faso, 10 in Bénin, 9 in Sénégal. `operator` is upper case (`ORANGE`, `MOOV`, `MTN`,
+  `WAVE`).
 - The OTP is a **string**: `'012345'` keeps its leading zero, `012345` does not.
 - `EXPIRED` means the payer never completed (distinct from `FAILED`, a real refusal).
   `$payment->isFinal()` is true for `SUCCESSFUL`, `FAILED`, `EXPIRED` and `CANCELED`.
@@ -147,6 +150,9 @@ echo $payments->paymentLink?->stats?->totalCollected, PHP_EOL;
 - `amount.type` is `fixed` (`value`), `range` (`min` / `max`) or `open` (the payer chooses).
   Amounts are decimal strings in major units.
 - `update()` only changes `title`, `description`, `expires_at` and `redirect`.
+- `pause()` and `resume()` never fail on the link's state: called on a link that is not active
+  (resp. not paused) they return it unchanged — check the returned `status`. `update()` and
+  `cancel()` on a closed link throw `ValidationException`.
 - `listPayments()` returns the payments held by the country you call. For a link open to
   several countries, call it once per country; the link's `stats` are global either way.
 - Required scopes on the API application: `payment_links:create`, `payment_links:read`,
@@ -164,7 +170,7 @@ use PayHub\Exception\TransferFailedException;
 try {
     $transfer = $barkapay->transfers->create([
         'operator'     => 'ORANGE',
-        'phone_number' => '50123456789',
+        'phone_number' => '74123456',
         'amount'       => 50000,
         'order'        => ['id' => 'PAYOUT-2026-001', 'unique' => true],
     ]);
@@ -250,7 +256,7 @@ Every error returned by the API throws an exception extending `PayHub\Exception\
 
 | Exception | HTTP | When |
 |---|---|---|
-| `ValidationException` | 422, 400 | Invalid request — `getErrors()` maps each field to its messages |
+| `ValidationException` | 422, 400 | Invalid request — `getErrors()` maps each field to its messages. Also raised, without field details, when the resource is not in the right state (confirming a payment that is not `AWAITING_OTP`, editing a closed link) |
 | `AuthenticationException` | 401 | Missing or wrong API key |
 | `AuthorizationException` | 403, 410, 451 | Missing scope, operator not enabled, IP not allowed, account suspended or closed |
 | `NotFoundException` | 404 | Unknown resource, endpoint or country |
@@ -315,6 +321,9 @@ idempotency key, and the operation may have gone through. To replay safely yours
    `ServiceUnavailableException`, look the operation up first:
    `payments->get($orderId)` / `transfers->get($orderId)`;
 3. only create it again if that lookup throws `NotFoundException`.
+
+An `order.id` sent with `unique` stays taken even when its payment or transfer failed: give
+every new attempt its own id (`ORDER-42-2`, `ORDER-42-3`…).
 
 ## Rate limits
 

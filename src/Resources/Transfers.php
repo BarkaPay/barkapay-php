@@ -25,7 +25,8 @@ final class Transfers
     /**
      * Create a transfer. Amount + fees are reserved from your wallet at once.
      *
-     * Parameters: `operator`, `phone_number` (digits only, no `+`), `amount`,
+     * Parameters: `operator` (upper case), `phone_number` (national format,
+     * digits only, without the country code), `amount` (at most two decimals),
      * `order` (`id` required; `unique: true` makes the API refuse a second
      * transfer with the same id — the closest thing to an idempotency key),
      * and `ignore_double_spend_risk` to bypass the guard that refuses a
