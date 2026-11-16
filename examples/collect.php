@@ -24,7 +24,8 @@ $orderId = 'ORDER-' . bin2hex(random_bytes(6));
 try {
     $payment = $barkapay->payments->create([
         'operator' => 'ORANGE',
-        'phone_number' => '50123456789',
+        // National format, without the country code (8 digits in Burkina Faso).
+        'phone_number' => '74123456',
         'amount' => 10000,
         // ORANGE takes the payer's one-time code up-front. Always a string:
         // "012345" must keep its leading zero.

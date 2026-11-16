@@ -25,11 +25,12 @@ final class Payments
     /**
      * Create a payment.
      *
-     * Parameters: `operator` (see `operators->info()`), `phone_number` (digits
-     * only, no `+`), `amount`, `order` (`id` required; `unique: true` makes the
-     * API refuse a second payment with the same id; `data`: up to 20 string
-     * entries echoed back as `orderData`), and `otp` — a STRING, leading zeros
-     * matter — for operators that take the code up-front.
+     * Parameters: `operator` (upper case, see `operators->info()`),
+     * `phone_number` (national format, digits only, without the country code),
+     * `amount` (at most two decimals), `order` (`id` required; `unique: true`
+     * makes the API refuse a second payment with the same id; `data`: up to 20
+     * string entries echoed back as `orderData`), and `otp` — a STRING, leading
+     * zeros matter — for operators that take the code up-front.
      *
      * What happens next depends on the operator — branch on the returned status:
      *  - `SUCCESSFUL`: settled in this very response (ORANGE);

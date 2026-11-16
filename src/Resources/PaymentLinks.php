@@ -90,7 +90,9 @@ final class PaymentLinks
     /**
      * Edit an active or paused link. Only the presentation fields can change:
      * `title`, `description`, `expires_at` and `redirect` (send `null` to
-     * clear a nullable field). Amount, currency and usage are immutable.
+     * clear a nullable field). Amount, currency and usage are immutable. A
+     * link that is neither active nor paused cannot be edited
+     * ({@see \PayHub\Exception\ValidationException}).
      *
      * @param array<string, mixed> $params
      *
@@ -105,7 +107,9 @@ final class PaymentLinks
 
     /**
      * Cancel an active or paused link for good: the checkout refuses new
-     * payments at once. Payments already made are not affected.
+     * payments at once. Payments already made are not affected. Cancelling a
+     * canceled link is a no-op; a paid or expired link cannot be canceled
+     * ({@see \PayHub\Exception\ValidationException}).
      *
      * @throws ApiException           on any error returned by the API (see the typed subclasses)
      * @throws NetworkException       when no response was received
@@ -119,6 +123,9 @@ final class PaymentLinks
     /**
      * Put an active link on hold: the checkout refuses new payments until {@see resume()}.
      *
+     * The API never fails on the link's state: called on a link that is not
+     * active, it returns the link unchanged — check the returned `status`.
+     *
      * @throws ApiException           on any error returned by the API (see the typed subclasses)
      * @throws NetworkException       when no response was received
      * @throws ConfigurationException on an invalid argument (country, identifier, parameters)
@@ -129,7 +136,8 @@ final class PaymentLinks
     }
 
     /**
-     * Re-open a paused link.
+     * Re-open a paused link. Called on a link that is not paused, it returns
+     * the link unchanged — check the returned `status`.
      *
      * @throws ApiException           on any error returned by the API (see the typed subclasses)
      * @throws NetworkException       when no response was received

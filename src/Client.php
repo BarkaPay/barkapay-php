@@ -24,7 +24,7 @@ use PayHub\Util\Coerce;
  * $barkapay = new \PayHub\Client(apiKey: 'key_id:secret', country: 'bf');
  * $payment = $barkapay->payments->create([
  *     'operator'     => 'ORANGE',
- *     'phone_number' => '50123456789',
+ *     'phone_number' => '74123456',
  *     'amount'       => 10000,
  *     'otp'          => '123456',
  *     'order'        => ['id' => 'ORDER-2026-001'],
