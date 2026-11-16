@@ -52,13 +52,16 @@ final class Client
      * @param string|null              $keyId          alternatively, the key id…
      * @param string|null              $secret         …and the secret, passed separately
      * @param string                   $country        default country code (`bf`, `bj`, `sn`); overridable per call
-     * @param string                   $baseUrl        API base URL — HTTPS, no trailing path needed
+     * @param string                   $baseUrl        API base URL — HTTPS. Plain http:// is accepted for a loopback host
+     *                                                 only (localhost, 127.0.0.1, [::1]), or for a non-barkapay host
+     *                                                 when you pass your own `$httpClient`
      * @param int                      $maxRetries     automatic retries of what is safe to retry (see README → Retries)
      * @param float                    $timeout        total time allowed for one request, in seconds
      * @param HttpClientInterface|null $httpClient     custom transport; `$timeout` / `$connectTimeout` then do not apply
      * @param float                    $connectTimeout time allowed to establish the connection, in seconds
-     * @param float                    $maxRetryDelay  longest wait between two attempts, in seconds. When the API asks
-     *                                                 for more (`Retry-After`), the error is thrown instead.
+     * @param float                    $maxRetryDelay  longest wait between two attempts, in seconds (default 10). When the
+     *                                                 API asks for more (`Retry-After`), the error is thrown instead.
+     *                                                 A write is never replayed after more than 10 s.
      *
      * @throws ConfigurationException on missing credentials or an unusable base URL
      */
@@ -74,12 +77,12 @@ final class Client
         float $timeout = CurlClient::DEFAULT_TIMEOUT,
         ?HttpClientInterface $httpClient = null,
         float $connectTimeout = CurlClient::DEFAULT_CONNECT_TIMEOUT,
-        float $maxRetryDelay = 5.0,
+        float $maxRetryDelay = 10.0,
     ) {
         $this->api = new ApiClient(
             httpClient: $httpClient ?? new CurlClient($timeout, $connectTimeout),
             authorization: self::buildAuthorization($apiKey, $keyId, $secret),
-            baseUrl: self::normalizeBaseUrl($baseUrl),
+            baseUrl: self::normalizeBaseUrl($baseUrl, $httpClient !== null),
             defaultCountry: strtolower(trim($country)),
             maxRetries: max(0, $maxRetries),
             userAgent: self::userAgent(),
@@ -186,7 +189,7 @@ final class Client
         return 'Bearer ' . $token;
     }
 
-    private static function normalizeBaseUrl(string $baseUrl): string
+    private static function normalizeBaseUrl(string $baseUrl, bool $customTransport): string
     {
         $url = rtrim(trim($baseUrl), '/');
 
@@ -212,14 +215,32 @@ final class Client
         }
 
         // Plain HTTP would send the API key in clear text. The barkapay hosts
-        // only answer it with a redirect, so it can never be what you want;
-        // other hosts (a local mock server) are left to your judgement.
+        // only answer it with a redirect, so it can never be what you want.
         if ($scheme === 'http' && ($host === 'barkapay.com' || str_ends_with($host, '.barkapay.com'))) {
             throw new ConfigurationException(
                 'The barkapay API is only served over HTTPS: use ' . self::DEFAULT_BASE_URL . '.',
             );
         }
 
+        // Elsewhere, plain HTTP is for a local mock server: a loopback host,
+        // or any host reached through a transport of your own.
+        if ($scheme === 'http' && !$customTransport && !self::isLoopback($host)) {
+            throw new ConfigurationException(
+                'The base URL must use https:// (http:// is accepted for localhost only): '
+                . 'the API key must never travel in clear text.',
+            );
+        }
+
         return $url;
+    }
+
+    /** `localhost`, `127.0.0.0/8` or `::1` — `$host` lower-cased, without the root dot. */
+    private static function isLoopback(string $host): bool
+    {
+        if ($host === 'localhost' || $host === '[::1]' || $host === '::1') {
+            return true;
+        }
+
+        return preg_match('/^127(\.(25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])){3}$/D', $host) === 1;
     }
 }

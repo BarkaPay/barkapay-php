@@ -258,6 +258,35 @@ final class SecurityTest extends TestCase
         yield 'non ascii' => ['https://hub.barkapay.cöm'];
     }
 
+    public function testPlainHttpIsForLoopbackHostsOnlyWithTheBuiltInTransport(): void
+    {
+        foreach (['http://localhost:8080', 'http://127.0.0.1', 'http://127.1.2.3:9', 'http://[::1]:8080', 'http://LOCALHOST.'] as $url) {
+            new Client(apiKey: 'k:s', baseUrl: $url);
+        }
+
+        foreach ([
+            'http://mock.internal:8080',
+            'http://10.0.0.5',
+            'http://localhost.evil.example',
+            'http://127.0.0.1.nip.io',
+            'http://1270.0.0.1',
+        ] as $url) {
+            try {
+                new Client(apiKey: 'k:s', baseUrl: $url);
+                self::fail('Expected ConfigurationException for ' . $url);
+            } catch (ConfigurationException $e) {
+                self::assertStringContainsString('https://', $e->getMessage());
+            }
+        }
+
+        // A transport of your own owns the connection (a mock server in CI)…
+        new Client(apiKey: 'k:s', baseUrl: 'http://mock.internal:8080', httpClient: new FakeHttpClient([]));
+
+        // …but never reaches a barkapay host in clear text.
+        $this->expectException(ConfigurationException::class);
+        new Client(apiKey: 'k:s', baseUrl: 'http://hub.barkapay.com', httpClient: new FakeHttpClient([]));
+    }
+
     #[DataProvider('invalidBaseUrls')]
     public function testInvalidBaseUrlsAreRefused(string $url): void
     {
@@ -293,6 +322,8 @@ final class SecurityTest extends TestCase
         yield 'too long' => [str_repeat('a', 1021)];
         yield 'slash' => ['INV/2026/0001'];
         yield 'traversal' => ['../../transfers'];
+        yield 'question mark' => ['x?per_page=200'];
+        yield 'hash' => ['x#frag'];
     }
 
     #[DataProvider('hostileIdentifiers')]
@@ -330,7 +361,6 @@ final class SecurityTest extends TestCase
     {
         $http = new FakeHttpClient([
             FakeHttpClient::ok(['payment_link' => []]),
-            FakeHttpClient::ok(['payments' => [['public_id' => 'p']]]),
             FakeHttpClient::ok(['payment_link' => []]),
             FakeHttpClient::ok(['payments' => [['public_id' => 'p']]]),
         ]);
@@ -338,9 +368,6 @@ final class SecurityTest extends TestCase
 
         $client->paymentLinks->cancel('..\\..\\transfers');
         self::assertSame('https://hub.barkapay.com/bf/v1/payments/links/..%5C..%5Ctransfers', $http->last()->url);
-
-        $client->payments->get('x?per_page=200#frag');
-        self::assertSame('https://hub.barkapay.com/bf/v1/payments/x%3Fper_page%3D200%23frag', $http->last()->url);
 
         $client->paymentLinks->pause('%2e%2e');
         self::assertSame('https://hub.barkapay.com/bf/v1/payments/links/%252e%252e/pause', $http->last()->url);
@@ -431,7 +458,8 @@ final class SecurityTest extends TestCase
         $request = new Request('GET', 'https://hub.barkapay.com/bf/v1/ping');
 
         $defaults = (new CurlClient())->options($request);
-        self::assertSame(30000, $defaults[CURLOPT_TIMEOUT_MS]);
+        // 40 s: above the hub's own 30 s cut-off, so its 503 arrives first.
+        self::assertSame(40000, $defaults[CURLOPT_TIMEOUT_MS]);
         self::assertSame(10000, $defaults[CURLOPT_CONNECTTIMEOUT_MS]);
         self::assertArrayNotHasKey(CURLOPT_POSTFIELDS, $defaults);
 
@@ -441,7 +469,7 @@ final class SecurityTest extends TestCase
 
         // 0 means "no timeout" for curl: it is never passed through.
         $zero = (new CurlClient(0.0, -1.0))->options($request);
-        self::assertSame(30000, $zero[CURLOPT_TIMEOUT_MS]);
+        self::assertSame(40000, $zero[CURLOPT_TIMEOUT_MS]);
         self::assertSame(10000, $zero[CURLOPT_CONNECTTIMEOUT_MS]);
 
         // A connect timeout can never exceed the total timeout.
@@ -455,7 +483,7 @@ final class SecurityTest extends TestCase
 
         foreach ([INF, -INF, NAN] as $weird) {
             $options = (new CurlClient($weird, $weird))->options($request);
-            self::assertSame(30000, $options[CURLOPT_TIMEOUT_MS]);
+            self::assertSame(40000, $options[CURLOPT_TIMEOUT_MS]);
             self::assertSame(10000, $options[CURLOPT_CONNECTTIMEOUT_MS]);
         }
 

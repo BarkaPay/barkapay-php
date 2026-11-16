@@ -72,6 +72,10 @@ final class Path
             );
         }
 
+        if (str_contains($value, '?') || str_contains($value, '#')) {
+            throw new ConfigurationException('The ' . $what . ' must not contain "?" or "#": no barkapay identifier does.');
+        }
+
         if (preg_match('/[\x00-\x1F\x7F]/', $value) === 1) {
             throw new ConfigurationException('The ' . $what . ' must not contain control characters.');
         }

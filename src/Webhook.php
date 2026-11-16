@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PayHub;
 
+use PayHub\Exception\ConfigurationException;
 use PayHub\Exception\SignatureVerificationException;
 use PayHub\Util\Json;
 
@@ -48,8 +49,10 @@ final class Webhook
      * @param string $payload         the raw request body
      * @param string $signatureHeader the `Barkapay-Signature` header value
      * @param string $secret          the webhook signing secret (`whsec_…`)
-     * @param int    $tolerance       maximum age of the signature in seconds. Keep the default: 0 (or less)
-     *                                disables the freshness check and with it the replay protection.
+     * @param int    $tolerance       maximum age of the signature in seconds (default 300, must be > 0)
+     *
+     * @throws ConfigurationException when the secret is empty or the tolerance is not positive — integration
+     *                                mistakes, never reported as a plain `false`
      */
     public static function verify(
         string $payload,
@@ -80,6 +83,7 @@ final class Webhook
      *
      * @throws SignatureVerificationException when the signature is missing, malformed, stale or wrong,
      *                                        or the verified body is not a JSON object
+     * @throws ConfigurationException         when the secret is empty or the tolerance is not positive
      */
     public static function parse(
         string $payload,
@@ -100,6 +104,7 @@ final class Webhook
 
     /**
      * @throws SignatureVerificationException
+     * @throws ConfigurationException
      */
     private static function assert(
         string $payload,
@@ -108,10 +113,17 @@ final class Webhook
         string $secret,
         int $tolerance,
     ): void {
-        // An empty key would make the HMAC computable by anyone: fail closed
+        // An empty key would make the HMAC computable by anyone: fail loudly
         // when the secret was not configured.
         if (trim($secret) === '') {
-            throw new SignatureVerificationException('The webhook signing secret is empty.');
+            throw new ConfigurationException(
+                'The webhook signing secret is empty: refusing to verify. Set the whsec_… secret of your endpoint.',
+            );
+        }
+
+        // 0 or less would switch the replay window off.
+        if ($tolerance <= 0) {
+            throw new ConfigurationException('The webhook tolerance must be a positive number of seconds (default 300).');
         }
 
         $parsed = self::parseHeader($header);
@@ -121,7 +133,7 @@ final class Webhook
 
         [$timestamp, $signatures] = $parsed;
 
-        if ($tolerance > 0 && abs(time() - $timestamp) > $tolerance) {
+        if (abs(time() - $timestamp) > $tolerance) {
             throw new SignatureVerificationException('Webhook timestamp is outside the tolerance window.');
         }
 

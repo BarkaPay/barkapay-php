@@ -23,8 +23,20 @@ use PayHub\Exception\NetworkException;
  */
 final class CurlClient implements HttpClientInterface
 {
-    public const DEFAULT_TIMEOUT = 30.0;
+    /**
+     * The hub gives a gateway 30 s and then answers 503 itself: waiting a
+     * little longer lets the SDK receive that verdict instead of giving up on
+     * an unknown outcome.
+     */
+    public const DEFAULT_TIMEOUT = 40.0;
     public const DEFAULT_CONNECT_TIMEOUT = 10.0;
+
+    /**
+     * Hard cap on a response body, in bytes. API responses are a few
+     * kilobytes; anything larger is not the API, and is refused before it can
+     * exhaust the memory of the integration.
+     */
+    public const MAX_RESPONSE_BYTES = 10 * 1024 * 1024;
 
     /**
      * curl errors raised before any byte of the request was sent: resolving
@@ -81,6 +93,22 @@ final class CurlClient implements HttpClientInterface
         $headers = [];
 
         $options = $this->options($request);
+
+        // The body is collected here rather than by CURLOPT_RETURNTRANSFER so
+        // that an oversized one is cut off while it streams in, whether or
+        // not it announced a Content-Length.
+        $body = '';
+        $tooLarge = false;
+        $options[CURLOPT_WRITEFUNCTION] = static function ($curl, string $chunk) use (&$body, &$tooLarge): int {
+            if (\strlen($body) + \strlen($chunk) > self::MAX_RESPONSE_BYTES) {
+                $tooLarge = true;
+
+                return 0; // aborts the transfer (CURLE_WRITE_ERROR)
+            }
+            $body .= $chunk;
+
+            return \strlen($chunk);
+        };
         $options[CURLOPT_HEADERFUNCTION] = static function ($curl, string $line) use (&$headers): int {
             $trimmed = trim($line);
             if (stripos($trimmed, 'HTTP/') === 0) {
@@ -113,11 +141,15 @@ final class CurlClient implements HttpClientInterface
             throw new NetworkException(rtrim('Unable to configure curl: ' . $reason, ': '), 0, null, true);
         }
 
-        $body = curl_exec($handle);
+        $result = curl_exec($handle);
 
-        if (!\is_string($body)) {
+        if ($result === false || $tooLarge) {
             $errno = curl_errno($handle);
             $error = curl_error($handle);
+
+            if ($tooLarge || $errno === 63) { // 63 = CURLE_FILESIZE_EXCEEDED
+                throw new NetworkException('The response body exceeds the maximum accepted size.', $errno);
+            }
 
             throw new NetworkException(
                 $error !== '' ? $error : 'HTTP request failed.',
@@ -173,6 +205,8 @@ final class CurlClient implements HttpClientInterface
             CURLOPT_HTTPHEADER => $headers,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_HEADER => false,
+            // Refused up front when the size is announced; see send() for the rest.
+            CURLOPT_MAXFILESIZE_LARGE => self::MAX_RESPONSE_BYTES,
 
             // TLS: always verify the chain and the host name.
             CURLOPT_SSL_VERIFYPEER => true,

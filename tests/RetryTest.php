@@ -23,7 +23,7 @@ final class RetryTest extends TestCase
     /** @var list<float> seconds the client asked to sleep */
     private array $sleeps = [];
 
-    private function api(FakeHttpClient $http, int $maxRetries = 2, float $maxRetryDelay = 5.0): ApiClient
+    private function api(FakeHttpClient $http, int $maxRetries = 2, float $maxRetryDelay = 10.0): ApiClient
     {
         $this->sleeps = [];
 
@@ -240,6 +240,42 @@ final class RetryTest extends TestCase
             self::assertSame([], $this->sleeps);
             self::assertSame(42, $e->getRetryAfter());
         }
+    }
+
+    public function testAWriteIsReplayedOnA429OnlyWhenTheWaitIsTenSecondsOrLess(): void
+    {
+        $limited = static fn (string $after): Response => FakeHttpClient::error(
+            429,
+            'too_many_requests',
+            'slow down',
+            [],
+            ['Retry-After' => $after, 'X-RateLimit-Limit' => '30', 'X-RateLimit-Remaining' => '0', 'X-Request-Id' => 'req-hub'],
+        );
+
+        // 10 s — what the API actually sends: replayed.
+        $http = new FakeHttpClient([$limited('10'), FakeHttpClient::ok(['payment' => ['public_id' => 'p1']])]);
+        $this->api($http)->request('POST', ['payments'], null, ['x' => 1]);
+        self::assertCount(2, $http->requests);
+        self::assertGreaterThanOrEqual(10.0, $this->sleeps[0]);
+
+        // 11 s: surfaced at once, even when the caller accepts long waits for reads.
+        $http = new FakeHttpClient([$limited('11'), FakeHttpClient::ok()]);
+        try {
+            $this->api($http, 2, 60.0)->request('POST', ['payments'], null, ['x' => 1]);
+            self::fail('Expected RateLimitException.');
+        } catch (RateLimitException $e) {
+            self::assertCount(1, $http->requests);
+            self::assertSame([], $this->sleeps);
+            self::assertSame(11, $e->getRetryAfter());
+            self::assertSame('30', $e->getResponseHeader('X-RateLimit-Limit'));
+            self::assertSame('0', $e->getResponseHeader('x-ratelimit-remaining'));
+            self::assertSame('rid-from-envelope', $e->getRequestId());
+        }
+
+        // A read follows the caller's maxRetryDelay.
+        $http = new FakeHttpClient([$limited('20'), FakeHttpClient::ok()]);
+        $this->api($http, 2, 60.0)->request('GET', ['payments']);
+        self::assertCount(2, $http->requests);
     }
 
     public function testRetryAfterAsAnHttpDateIsUnderstood(): void
