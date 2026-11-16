@@ -157,8 +157,10 @@ echo $payments->paymentLink?->stats?->totalCollected, PHP_EOL;
   several countries, call it once per country; the link's `stats` are global either way.
 - Required scopes on the API application: `payment_links:create`, `payment_links:read`,
   `payment_links:manage`.
-- `payments->create()` always executes a direct payment — there is no `channel: hosted` switch
-  on it; hosted checkout is this resource.
+- Shortcut: `payments->create(['channel' => 'hosted', …link parameters…])` creates the same
+  link and returns it in `$payment->paymentLink` (no payment exists yet, so the other fields
+  are empty). `channel` defaults to `direct`, an ordinary payment. The API itself has one
+  endpoint per kind: `paymentLinks->create()` is the explicit form.
 
 ## Transfers
 

@@ -16,6 +16,8 @@ Backward compatible with 1.0.0. Brings the SDK in line with the current API and 
   `update()`, `cancel()`, `pause()`, `resume()` and `listPayments()`, with the `PaymentLink`,
   `PaymentLinkAmount`, `PaymentLinkStats` and `PaymentLinkCollection` objects and the
   `PaymentLinkStatus` enum.
+- `payments->create()` accepts `channel`: `direct` (default) or `hosted`. With `hosted` a
+  payment link is created instead and returned in the new `Payment::$paymentLink`.
 - `Payment` and `Transfer`: `reasonCode`, `providerReason`, `providerReference`, `rawStatus`,
   plus `linkPublicId` and `redirectUrl` on payments and `appLabel` on transfers; `isFinal()` and
   `isSuccessful()` helpers.
@@ -83,8 +85,8 @@ Backward compatible with 1.0.0. Brings the SDK in line with the current API and 
 - Webhooks: an empty signing secret never verifies; the header parser is strict (single
   numeric timestamp, 64-hex signatures, bounded length); all candidate signatures are compared
   in constant time.
-- `payments->create()` refuses `channel: hosted`: the API ignores that field and would execute
-  a direct payment instead of returning a link.
+- `channel: hosted` is never sent to `POST /payments`: the API ignores that field there and
+  would execute a direct payment instead of returning a link.
 - A timeout of `0` (wait forever) is no longer passed to curl.
 
 ## [1.0.0] - 2026-06-27

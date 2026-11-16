@@ -7,6 +7,7 @@ namespace PayHub\Resources;
 use PayHub\ApiClient;
 use PayHub\DTO\Payment;
 use PayHub\DTO\PaymentCollection;
+use PayHub\DTO\PaymentLink;
 use PayHub\Exception\ApiException;
 use PayHub\Exception\ConfigurationException;
 use PayHub\Exception\NetworkException;
@@ -45,25 +46,32 @@ final class Payments
      * twice): on {@see \PayHub\Exception\NetworkException}, look the payment up
      * with `get($orderId)` before trying again.
      *
-     * To get a hosted checkout page instead, create a payment link with
-     * `$client->paymentLinks->create()` — `POST /payments` only ever executes
-     * a direct payment.
+     * **`channel`** — `direct` (the default) is the payment described above.
+     * With `'channel' => 'hosted'` nobody is charged: the other parameters are
+     * those of {@see PaymentLinks::create()} (`title`, `amount` => [`type`, …],
+     * …), a payment link is created, and the returned object only carries it
+     * in `$payment->paymentLink` (share its `url`). This is a shortcut kept in
+     * the SDK — the API has one endpoint per kind — and
+     * `$client->paymentLinks->create()` is the explicit way to do the same.
      *
      * @param array<string, mixed> $params
      *
      * @throws ApiException           on any error returned by the API (see the typed subclasses)
      * @throws NetworkException       when no response was received
-     * @throws ConfigurationException on an invalid argument, or when `channel` is `hosted`
+     * @throws ConfigurationException on an invalid argument (country, parameters)
      */
     public function create(array $params, ?string $country = null): Payment
     {
         $channel = $params['channel'] ?? null;
-        if (\is_string($channel) && strtolower($channel) === 'hosted') {
-            // The API ignores `channel` on this endpoint: letting the call
-            // through would charge the payer directly instead of returning a link.
-            throw new ConfigurationException(
-                'A hosted payment is a payment link: use $client->paymentLinks->create(). '
-                . 'payments->create() always executes a direct payment.',
+        if (\is_string($channel) && strtolower(trim($channel)) === 'hosted') {
+            // `channel` is an SDK-level switch: the API ignores the field on
+            // POST /payments and would charge the payer directly, so a hosted
+            // request is never sent there.
+            unset($params['channel']);
+            $env = $this->api->request('POST', ['payments', 'links'], $country, $params);
+
+            return Payment::hosted(
+                PaymentLink::fromArray(Coerce::arr(Coerce::arr($env, 'data') ?? [], 'payment_link') ?? []),
             );
         }
 
