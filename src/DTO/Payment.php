@@ -27,6 +27,9 @@ final class Payment
      * @param string|null               $providerReference operator-side tracking reference (OTP transaction id, session id…)
      * @param string|null               $linkPublicId      `PL-…` id of the payment link the payer used, if any
      * @param string|null               $redirectUrl       URL the payer must open to approve (WAVE, `sn`)
+     * @param PaymentLink|null          $paymentLink       only set by `payments->create()` with `channel: hosted`:
+     *                                                     the link to share with the payer. No payment exists yet
+     *                                                     then — every other field is empty.
      */
     public function __construct(
         public readonly string $publicId,
@@ -50,6 +53,7 @@ final class Payment
         public readonly ?string $providerReference = null,
         public readonly ?string $linkPublicId = null,
         public readonly ?string $redirectUrl = null,
+        public readonly ?PaymentLink $paymentLink = null,
     ) {
     }
 
@@ -82,6 +86,34 @@ final class Payment
             providerReference: Coerce::str($data, 'provider_reference'),
             linkPublicId: Coerce::str($data, 'link_public_id'),
             redirectUrl: Coerce::str($data, 'redirect_url'),
+        );
+    }
+
+    /**
+     * The answer to a hosted creation: a payment link, and no payment yet (the
+     * payments are born when payers pay on the link).
+     *
+     * @internal
+     */
+    public static function hosted(PaymentLink $link): self
+    {
+        return new self(
+            publicId: '',
+            amount: null,
+            fees: null,
+            currency: null,
+            phoneNumber: null,
+            country: null,
+            operator: null,
+            channel: 'hosted',
+            status: null,
+            orderId: null,
+            providerTransactionId: null,
+            orderData: null,
+            reason: null,
+            createdAt: null,
+            raw: ['channel' => 'hosted', 'payment_link' => $link->raw],
+            paymentLink: $link,
         );
     }
 

@@ -232,25 +232,76 @@ final class ClientTest extends TestCase
         self::assertNull($http->last()->body);
     }
 
-    public function testHostedChannelIsRedirectedToPaymentLinks(): void
+    public function testHostedChannelCreatesAPaymentLinkAndNeverChargesThePayer(): void
     {
-        $http = new FakeHttpClient([]);
+        $http = new FakeHttpClient([
+            FakeHttpClient::ok(['payment_link' => [
+                'public_id' => 'PL-0198c2f1-9f6a-7c4e-b1d2-3a4b5c6d7e8f',
+                'slug' => '9j32HfkT2mQx4',
+                'url' => 'https://checkout.payhub.africa/9j32HfkT2mQx4',
+                'status' => 'active',
+                'amount' => ['type' => 'fixed', 'value' => '25000', 'currency' => 'XOF'],
+            ]], 201),
+        ]);
 
-        try {
-            $this->client($http)->payments->create([
-                'channel' => 'hosted',
-                'operator' => 'ORANGE',
-                'phone_number' => '50123456789',
-                'amount' => 100,
-                'order' => ['id' => 'O1'],
-            ]);
-            self::fail('Expected ConfigurationException.');
-        } catch (ConfigurationException $e) {
-            self::assertStringContainsString('paymentLinks->create()', $e->getMessage());
-        }
+        $payment = $this->client($http)->payments->create([
+            'channel' => 'hosted',
+            'title' => 'Invoice #1234',
+            'amount' => ['type' => 'fixed', 'currency' => 'XOF', 'value' => '25000'],
+        ]);
 
-        // Nothing was sent: no direct charge happened by accident.
-        self::assertCount(0, $http->requests);
+        // The request went to the payment-links endpoint — NOT to POST /payments,
+        // where the API ignores `channel` and would charge the payer directly.
+        self::assertCount(1, $http->requests);
+        self::assertSame('POST', $http->last()->method);
+        self::assertSame('https://hub.barkapay.com/bf/v1/payments/links', $http->last()->url);
+        // `channel` is an SDK-level switch: it is not put on the wire.
+        self::assertSame(
+            ['title' => 'Invoice #1234', 'amount' => ['type' => 'fixed', 'currency' => 'XOF', 'value' => '25000']],
+            $http->lastJson(),
+        );
+
+        // The return type exposes the link; there is no payment yet.
+        $link = $payment->paymentLink;
+        self::assertNotNull($link);
+        self::assertSame('PL-0198c2f1-9f6a-7c4e-b1d2-3a4b5c6d7e8f', $link->publicId);
+        self::assertSame('https://checkout.payhub.africa/9j32HfkT2mQx4', $link->url);
+        self::assertSame('25000', $link->amount?->value);
+        self::assertSame('hosted', $payment->channel);
+        self::assertSame('', $payment->publicId);
+        self::assertNull($payment->status);
+        self::assertFalse($payment->isFinal());
+        self::assertFalse($payment->isSuccessful());
+        self::assertSame(['channel', 'payment_link'], array_keys($payment->toArray()));
+        self::assertSame($link->raw, $payment->toArray()['payment_link']);
+    }
+
+    public function testHostedChannelIsMatchedWhateverItsCase(): void
+    {
+        $http = new FakeHttpClient([FakeHttpClient::ok(['payment_link' => ['public_id' => 'PL-1']], 201)]);
+
+        $payment = $this->client($http)->payments->create(['channel' => ' Hosted ', 'title' => 'x', 'amount' => ['type' => 'open']]);
+
+        self::assertSame('https://hub.barkapay.com/bf/v1/payments/links', $http->last()->url);
+        self::assertSame('PL-1', $payment->paymentLink?->publicId);
+    }
+
+    public function testDirectChannelIsAnOrdinaryPayment(): void
+    {
+        $http = new FakeHttpClient([
+            FakeHttpClient::ok(['payment' => ['public_id' => 'p1', 'status' => 'SUCCESSFUL']]),
+            FakeHttpClient::ok(['payment' => ['public_id' => 'p2', 'status' => 'SUCCESSFUL']]),
+        ]);
+        $client = $this->client($http);
+
+        $payment = $client->payments->create(['channel' => 'direct', 'operator' => 'ORANGE', 'order' => ['id' => 'O1']]);
+        self::assertSame('https://hub.barkapay.com/bf/v1/payments', $http->last()->url);
+        self::assertSame('p1', $payment->publicId);
+        self::assertNull($payment->paymentLink);
+
+        // No channel at all: same thing.
+        $client->payments->create(['operator' => 'ORANGE', 'order' => ['id' => 'O2']]);
+        self::assertSame('https://hub.barkapay.com/bf/v1/payments', $http->last()->url);
     }
 
     public function testTransfersCreateListAndGet(): void
