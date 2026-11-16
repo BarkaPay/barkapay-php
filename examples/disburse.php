@@ -41,7 +41,7 @@ try {
 } catch (NetworkException $e) {
     // No response: the payout may be executing. Look it up by order id before
     // doing anything else — sending it again could pay twice.
-    fprintf(STDERR, "No response (request %s). Check transfers->get('%s') first.\n", $e->getRequestId() ?? '?', $orderId);
+    fprintf(STDERR, "No response (request %s). Check transfers->list(['order_id' => '%s']) first.\n", $e->getRequestId() ?? '?', $orderId);
     exit(1);
 } catch (PayHubException $e) {
     fwrite(STDERR, 'barkapay error: ' . $e->getMessage() . "\n");

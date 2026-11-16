@@ -43,7 +43,7 @@ final class Transfers
      *
      * This call is never replayed after a timeout or a 5xx (it could pay
      * twice): on {@see \PayHub\Exception\NetworkException}, look the transfer
-     * up with `get($orderId)` before trying again.
+     * up with `list(['order_id' => $orderId])` before trying again.
      *
      * @param array<string, mixed> $params
      *
@@ -83,6 +83,9 @@ final class Transfers
      * An order_id is only unique when the transfer was created with
      * `order.unique: true`; otherwise the first match is returned — use
      * `list(['order_id' => …])` to get them all.
+     *
+     * An identifier shaped like a UUID is always looked up as a public_id: if
+     * your own order ids are UUIDs, find them with `list(['order_id' => …])`.
      *
      * @throws ApiException           on any error returned by the API — {@see NotFoundException} when nothing matches
      * @throws NetworkException       when no response was received

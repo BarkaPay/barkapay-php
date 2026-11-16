@@ -11,8 +11,8 @@ namespace PayHub\Exception;
  * ⚠️ For a request that moves money (`payments->create()`,
  * `transfers->create()`, `payments->confirmOtp()`), a timeout does NOT mean
  * nothing happened — the API may have processed it. Look the operation up by
- * your `order.id` before trying again, unless {@see isConnectionFailure()} is
- * true.
+ * your `order.id` (`list(['order_id' => …])`) before trying again, unless
+ * {@see isConnectionFailure()} is true.
  */
 final class NetworkException extends \RuntimeException implements PayHubException
 {

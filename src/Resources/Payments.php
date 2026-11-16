@@ -44,7 +44,7 @@ final class Payments
      *
      * This call is never replayed after a timeout or a 5xx (it could charge
      * twice): on {@see \PayHub\Exception\NetworkException}, look the payment up
-     * with `get($orderId)` before trying again.
+     * with `list(['order_id' => $orderId])` before trying again.
      *
      * **`channel`** — `direct` (the default) is the payment described above.
      * With `'channel' => 'hosted'` nobody is charged: the other parameters are
@@ -105,6 +105,9 @@ final class Payments
      * An order_id is only unique when the payment was created with
      * `order.unique: true`; otherwise the first match is returned — use
      * `list(['order_id' => …])` to get them all.
+     *
+     * An identifier shaped like a UUID is always looked up as a public_id: if
+     * your own order ids are UUIDs, find them with `list(['order_id' => …])`.
      *
      * @throws ApiException           on any error returned by the API — {@see NotFoundException} when nothing matches
      * @throws NetworkException       when no response was received
