@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace PayHub\Tests;
+namespace BarkaPay\Tests;
 
-use PayHub\ApiClient;
-use PayHub\Exception\NetworkException;
-use PayHub\Exception\RateLimitException;
-use PayHub\Exception\ServerException;
-use PayHub\Exception\ServiceUnavailableException;
-use PayHub\Http\Response;
-use PayHub\Tests\Support\FakeHttpClient;
+use BarkaPay\ApiClient;
+use BarkaPay\Exception\NetworkException;
+use BarkaPay\Exception\RateLimitException;
+use BarkaPay\Exception\ServerException;
+use BarkaPay\Exception\ServiceUnavailableException;
+use BarkaPay\Http\Response;
+use BarkaPay\Tests\Support\FakeHttpClient;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -282,7 +282,7 @@ final class RetryTest extends TestCase
     {
         $responses = array_fill(0, 20, self::unavailable());
         $http = new FakeHttpClient($responses);
-        $client = new \PayHub\Client(apiKey: 'k:s', country: 'bf', maxRetries: 1000, httpClient: $http, maxRetryDelay: 0.0);
+        $client = new \BarkaPay\Client(apiKey: 'k:s', country: 'bf', maxRetries: 1000, httpClient: $http, maxRetryDelay: 0.0);
 
         try {
             $client->ping();

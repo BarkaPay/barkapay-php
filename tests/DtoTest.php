@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace PayHub\Tests;
+namespace BarkaPay\Tests;
 
-use PayHub\DTO\Balance;
-use PayHub\DTO\Pagination;
-use PayHub\DTO\Payment;
-use PayHub\DTO\PaymentLink;
-use PayHub\DTO\RateLimit;
-use PayHub\DTO\Transfer;
-use PayHub\Enum\PaymentLinkStatus;
-use PayHub\Enum\PaymentStatus;
-use PayHub\Enum\ReasonCode;
-use PayHub\Enum\TransferStatus;
+use BarkaPay\DTO\Balance;
+use BarkaPay\DTO\Pagination;
+use BarkaPay\DTO\Payment;
+use BarkaPay\DTO\PaymentLink;
+use BarkaPay\DTO\RateLimit;
+use BarkaPay\DTO\Transfer;
+use BarkaPay\Enum\PaymentLinkStatus;
+use BarkaPay\Enum\PaymentStatus;
+use BarkaPay\Enum\ReasonCode;
+use BarkaPay\Enum\TransferStatus;
 use PHPUnit\Framework\TestCase;
 
 final class DtoTest extends TestCase
@@ -129,7 +129,7 @@ final class DtoTest extends TestCase
             self::assertNotNull(TransferStatus::tryFrom($status), $status);
         }
 
-        // PayHub\PayLinks\PayLink::STATUS_*.
+        // BarkaPay\PayLinks\PayLink::STATUS_*.
         foreach (['active', 'paused', 'paid', 'expired', 'canceled', 'admin_blocked'] as $status) {
             self::assertNotNull(PaymentLinkStatus::tryFrom($status), $status);
         }

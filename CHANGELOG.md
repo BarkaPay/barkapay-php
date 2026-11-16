@@ -6,6 +6,35 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-11-16
+
+The SDK takes its final name. 2.0 is a pure rename of 1.1.0: same resources, same methods,
+same retry rules (reads replayed on 429/502/503/504/network errors; writes only on a 429 asking
+for 10 s or less), same behaviour.
+
+### Changed (breaking)
+
+- Composer package `barkapay/payhub-php` → **`barkapay/barkapay-php`**. The old package is
+  abandoned in favour of the new one and receives no further release.
+- Namespace `PayHub\` → **`BarkaPay\`**.
+- `PayHubException` (the interface every SDK exception implements) → **`BarkaPayException`**.
+- `User-Agent` sent to the API: `barkapay-php/<version> php/<version>`.
+- Examples and documentation read `BARKAPAY_API_KEY` and `BARKAPAY_WEBHOOK_SECRET`.
+- Repository moved to `github.com/BarkaPay/barkapay-php`; documentation at
+  `https://barkapay.com/developers`.
+
+### Removed
+
+- `Webhook::LEGACY_SIGNATURE_HEADER` (`PayHub-Signature`): the API no longer sends that header,
+  only `Barkapay-Signature` (`Webhook::SIGNATURE_HEADER`).
+
+### Migrating from 1.x
+
+1. `composer remove barkapay/payhub-php && composer require barkapay/barkapay-php:^2.0`
+2. Replace `PayHub\` with `BarkaPay\` and `PayHubException` with `BarkaPayException` in your
+   code.
+3. If you read `Webhook::LEGACY_SIGNATURE_HEADER`, drop it and read `Webhook::SIGNATURE_HEADER`.
+
 ## [1.1.0] - 2026-11-16
 
 Backward compatible with 1.0.0: no public name was removed and every 1.0.0 call keeps its
@@ -128,10 +157,11 @@ check when upgrading" below.
 - Initial PHP SDK: `Client` with `payments`, `transfers`, `balance`, `operators`
   resources plus `ping()` / `me()`.
 - Typed DTOs (`Payment`, `Transfer`, `Balance`) and status enums.
-- Webhook signature verification (`PayHub\Webhook`).
+- Webhook signature verification (`BarkaPay\Webhook`).
 - Typed exception hierarchy mapped from the API error envelope.
 - Zero-dependency curl transport with automatic retries on 429/503/network.
 
-[Unreleased]: https://github.com/BarkaPay/payhub-php/compare/v1.1.0...HEAD
-[1.1.0]: https://github.com/BarkaPay/payhub-php/compare/v1.0.0...v1.1.0
-[1.0.0]: https://github.com/BarkaPay/payhub-php/releases/tag/v1.0.0
+[Unreleased]: https://github.com/BarkaPay/barkapay-php/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/BarkaPay/barkapay-php/compare/v1.1.0...v2.0.0
+[1.1.0]: https://github.com/BarkaPay/barkapay-php/compare/v1.0.0...v1.1.0
+[1.0.0]: https://github.com/BarkaPay/barkapay-php/releases/tag/v1.0.0

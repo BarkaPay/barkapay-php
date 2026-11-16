@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PayHub\Util;
+namespace BarkaPay\Util;
 
 /**
  * Defensive readers for decoded JSON — keep DTO hydration null-safe and tidy.

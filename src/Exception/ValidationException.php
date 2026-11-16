@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PayHub\Exception;
+namespace BarkaPay\Exception;
 
 /**
  * 422 — request validation failed. `getErrors()` returns the field → messages

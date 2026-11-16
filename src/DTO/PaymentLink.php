@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace PayHub\DTO;
+namespace BarkaPay\DTO;
 
-use PayHub\Enum\PaymentLinkStatus;
-use PayHub\Util\Coerce;
+use BarkaPay\Enum\PaymentLinkStatus;
+use BarkaPay\Util\Coerce;
 
 /**
  * A payment link: a durable URL on the barkapay-hosted checkout where your

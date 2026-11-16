@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace PayHub\Http;
+namespace BarkaPay\Http;
 
-use PayHub\Exception\NetworkException;
+use BarkaPay\Exception\NetworkException;
 
 /**
  * Minimal transport contract. The SDK ships a zero-dependency curl

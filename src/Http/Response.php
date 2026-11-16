@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace PayHub\Http;
+namespace BarkaPay\Http;
 
-use PayHub\Util\Headers;
+use BarkaPay\Util\Headers;
 
 /**
  * A raw HTTP response returned by an {@see HttpClientInterface}.

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace PayHub\Tests;
+namespace BarkaPay\Tests;
 
-use PayHub\Client;
+use BarkaPay\Client;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -57,7 +57,7 @@ final class DocsTest extends TestCase
     public function testReadmeOnlyNamesClassesThatExist(): void
     {
         $readme = (string) file_get_contents(self::ROOT . '/README.md');
-        preg_match_all('/\bPayHub\\\\[A-Za-z\\\\]+/', $readme, $matches);
+        preg_match_all('/\bBarkaPay\\\\[A-Za-z\\\\]+/', $readme, $matches);
 
         $names = array_unique($matches[0]);
         self::assertNotEmpty($names);
@@ -65,7 +65,7 @@ final class DocsTest extends TestCase
         foreach ($names as $name) {
             $name = rtrim($name, '\\');
             self::assertTrue(
-                class_exists($name) || interface_exists($name) || enum_exists($name) || is_dir(self::ROOT . '/src/' . str_replace(['PayHub\\', '\\'], ['', '/'], $name)),
+                class_exists($name) || interface_exists($name) || enum_exists($name) || is_dir(self::ROOT . '/src/' . str_replace(['BarkaPay\\', '\\'], ['', '/'], $name)),
                 'README mentions ' . $name . ', which does not exist.',
             );
         }
@@ -132,7 +132,7 @@ final class DocsTest extends TestCase
         // The first released section of the changelog is the current version.
         self::assertSame(1, preg_match('/^## \[(\d+\.\d+\.\d+)\] - \d{4}-\d{2}-\d{2}$/m', $changelog, $m));
         self::assertSame(Client::VERSION, $m[1] ?? null, 'Client::VERSION and the latest CHANGELOG section disagree.');
-        self::assertStringContainsString('[' . Client::VERSION . ']: https://github.com/BarkaPay/payhub-php/compare/', $changelog);
+        self::assertStringContainsString('[' . Client::VERSION . ']: https://github.com/BarkaPay/barkapay-php/compare/', $changelog);
     }
 
     public function testDocumentationUsesTheBrandInLowercase(): void

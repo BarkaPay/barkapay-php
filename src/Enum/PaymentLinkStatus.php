@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PayHub\Enum;
+namespace BarkaPay\Enum;
 
 /**
  * Status of a payment link. An unknown future value hydrates as `null` on

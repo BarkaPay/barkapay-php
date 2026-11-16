@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace PayHub\DTO;
+namespace BarkaPay\DTO;
 
-use PayHub\Util\Coerce;
+use BarkaPay\Util\Coerce;
 
 /**
  * Totals of a payment link. Only SUCCESSFUL payments are counted, across every

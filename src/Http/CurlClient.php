@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace PayHub\Http;
+namespace BarkaPay\Http;
 
-use PayHub\Exception\ConfigurationException;
-use PayHub\Exception\NetworkException;
+use BarkaPay\Exception\ConfigurationException;
+use BarkaPay\Exception\NetworkException;
 
 /**
  * Zero-dependency HTTP client built on ext-curl. No Guzzle, no PSR packages —

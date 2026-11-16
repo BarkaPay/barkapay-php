@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PayHub\Enum;
+namespace BarkaPay\Enum;
 
 /**
  * Stable, machine-readable failure codes carried by `reasonCode` on payments,

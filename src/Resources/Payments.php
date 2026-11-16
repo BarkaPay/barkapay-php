@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace PayHub\Resources;
+namespace BarkaPay\Resources;
 
-use PayHub\ApiClient;
-use PayHub\DTO\Payment;
-use PayHub\DTO\PaymentCollection;
-use PayHub\Exception\ApiException;
-use PayHub\Exception\ConfigurationException;
-use PayHub\Exception\NetworkException;
-use PayHub\Exception\NotFoundException;
-use PayHub\Util\Coerce;
+use BarkaPay\ApiClient;
+use BarkaPay\DTO\Payment;
+use BarkaPay\DTO\PaymentCollection;
+use BarkaPay\Exception\ApiException;
+use BarkaPay\Exception\ConfigurationException;
+use BarkaPay\Exception\NetworkException;
+use BarkaPay\Exception\NotFoundException;
+use BarkaPay\Util\Coerce;
 
 /**
  * Collections: charge a payer's mobile-money wallet.
@@ -38,11 +38,11 @@ final class Payments
      *  - `PROCESSING_OPERATOR`: the payer approves on their phone or at
      *    `$payment->redirectUrl` (WAVE); the verdict arrives by webhook.
      *
-     * A refused payment throws {@see \PayHub\Exception\PaymentFailedException}
+     * A refused payment throws {@see \BarkaPay\Exception\PaymentFailedException}
      * (the recorded attempt is on `getPayment()`).
      *
      * This call is never replayed after a timeout or a 5xx (it could charge
-     * twice): on {@see \PayHub\Exception\NetworkException}, look the payment up
+     * twice): on {@see \BarkaPay\Exception\NetworkException}, look the payment up
      * with `list(['order_id' => $orderId])` before trying again.
      *
      * This is always a direct payment. For a hosted checkout page, create a
@@ -113,7 +113,7 @@ final class Payments
      * answer 404).
      *
      * One attempt only: a wrong code fails the payment for good
-     * ({@see \PayHub\Exception\PaymentFailedException}). The code is a string —
+     * ({@see \BarkaPay\Exception\PaymentFailedException}). The code is a string —
      * `"012345"` keeps its leading zero.
      *
      * @throws ApiException           on any error returned by the API (see the typed subclasses)

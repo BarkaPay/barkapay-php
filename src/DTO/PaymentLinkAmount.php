@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace PayHub\DTO;
+namespace BarkaPay\DTO;
 
-use PayHub\Util\Coerce;
+use BarkaPay\Util\Coerce;
 
 /**
  * What a payment link asks the payer for. Values are decimal strings in major

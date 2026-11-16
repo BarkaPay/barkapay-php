@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace PayHub\Util;
+namespace BarkaPay\Util;
 
-use PayHub\Exception\ConfigurationException;
+use BarkaPay\Exception\ConfigurationException;
 
 /**
  * Holds a credential OUTSIDE of any object property.

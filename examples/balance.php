@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 // Read-only tour: connectivity, balance, operators, latest payments.
 //
-//   PAYHUB_API_KEY="key_id:secret" php examples/balance.php [bf|bj|sn]
+//   BARKAPAY_API_KEY="key_id:secret" php examples/balance.php [bf|bj|sn]
 
 require __DIR__ . '/../vendor/autoload.php';
 
-use PayHub\Client;
-use PayHub\Exception\PayHubException;
+use BarkaPay\Client;
+use BarkaPay\Exception\BarkaPayException;
 
-$barkapay = new Client(apiKey: getenv('PAYHUB_API_KEY') ?: null, country: $argv[1] ?? 'bf');
+$barkapay = new Client(apiKey: getenv('BARKAPAY_API_KEY') ?: null, country: $argv[1] ?? 'bf');
 
 try {
     $pong = $barkapay->ping();
@@ -33,7 +33,7 @@ try {
 
     $limit = $barkapay->lastRateLimit();
     printf("Rate limit: %s of %s requests left in this window.\n", (string) ($limit->remaining ?? '?'), (string) ($limit->limit ?? '?'));
-} catch (PayHubException $e) {
+} catch (BarkaPayException $e) {
     fwrite(STDERR, 'barkapay error: ' . $e->getMessage() . "\n");
     exit(1);
 }

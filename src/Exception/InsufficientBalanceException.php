@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PayHub\Exception;
+namespace BarkaPay\Exception;
 
 /**
  * 400 `insufficient_balance` — the wallet cannot cover the transfer (amount +

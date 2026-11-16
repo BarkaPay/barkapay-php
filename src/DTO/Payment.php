@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace PayHub\DTO;
+namespace BarkaPay\DTO;
 
-use PayHub\Enum\PaymentStatus;
-use PayHub\Util\Coerce;
+use BarkaPay\Enum\PaymentStatus;
+use BarkaPay\Util\Coerce;
 
 /**
  * A collection (payment) as returned by the API. Documented fields are typed;
@@ -22,7 +22,7 @@ final class Payment
      * @param array<string, mixed>|null $orderData
      * @param array<string, mixed>      $raw
      * @param string|null               $rawStatus         status string as sent by the API (set even when `$status` is null)
-     * @param string|null               $reasonCode        stable failure code — see {@see \PayHub\Enum\ReasonCode}
+     * @param string|null               $reasonCode        stable failure code — see {@see \BarkaPay\Enum\ReasonCode}
      * @param string|null               $providerReason    the operator's own sentence — informational, not contractual
      * @param string|null               $providerReference operator-side tracking reference (OTP transaction id, session id…)
      * @param string|null               $linkPublicId      `PL-…` id of the payment link the payer used, if any

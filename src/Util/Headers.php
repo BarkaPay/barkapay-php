@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PayHub\Util;
+namespace BarkaPay\Util;
 
 /**
  * Tolerant readers for HTTP response headers, whatever the transport handed
