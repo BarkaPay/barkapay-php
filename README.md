@@ -96,7 +96,7 @@ $payment = $barkapay->payments->confirmOtp($publicId, '012345'); // MOOV bf — 
 $barkapay->payments->resendOtp($publicId);
 
 $payment = $barkapay->payments->get($publicId);        // by public_id…
-$payment = $barkapay->payments->get('ORDER-2026-002'); // …or by your order id
+$payment = $barkapay->payments->get('ORDER-2026-002'); // …or by your order id (unless it is a UUID)
 
 $page = $barkapay->payments->list(['status' => 'SUCCESSFUL', 'per_page' => 50]);
 foreach ($page as $payment) {
@@ -321,8 +321,8 @@ idempotency key, and the operation may have gone through. To replay safely yours
    refuses a second operation with the same id (`ConflictException`);
 2. on `NetworkException` (unless `$e->isConnectionFailure()` is true) or
    `ServiceUnavailableException`, look the operation up first:
-   `payments->get($orderId)` / `transfers->get($orderId)`;
-3. only create it again if that lookup throws `NotFoundException`.
+   `payments->list(['order_id' => $orderId])` / `transfers->list(['order_id' => $orderId])`;
+3. only create it again if that list is empty.
 
 An `order.id` sent with `unique` stays taken even when its payment or transfer failed: give
 every new attempt its own id (`ORDER-42-2`, `ORDER-42-3`…).

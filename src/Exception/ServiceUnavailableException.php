@@ -10,8 +10,9 @@ namespace PayHub\Exception;
  * {@see getRetryAfter()} when it is set.
  *
  * When it answers a payment or transfer creation, check {@see getPayment()} /
- * {@see getTransfer()} — or look the operation up by your `order.id` — before
- * sending it again: an attempt may already be recorded.
+ * {@see getTransfer()} — or look the operation up by your `order.id`
+ * (`list(['order_id' => …])`) — before sending it again: an attempt may
+ * already be recorded.
  */
 final class ServiceUnavailableException extends ApiException
 {

@@ -43,7 +43,7 @@ try {
 } catch (NetworkException $e) {
     // No response: the payment may or may not exist. Look it up by order id
     // before trying again — never re-send blindly.
-    fprintf(STDERR, "No response (request %s). Check payments->get('%s') first.\n", $e->getRequestId() ?? '?', $orderId);
+    fprintf(STDERR, "No response (request %s). Check payments->list(['order_id' => '%s']) first.\n", $e->getRequestId() ?? '?', $orderId);
     exit(1);
 } catch (PayHubException $e) {
     fwrite(STDERR, 'barkapay error: ' . $e->getMessage() . "\n");
