@@ -10,6 +10,14 @@ use PayHub\Exception\NetworkException;
  * Minimal transport contract. The SDK ships a zero-dependency curl
  * implementation ({@see CurlClient}); pass your own to integrate an existing
  * HTTP stack (e.g. a PSR-18 adapter) or to fake the network in tests.
+ *
+ * Implementations MUST:
+ *  - verify the server's TLS certificate and host name;
+ *  - NOT follow redirects (the request carries the API key in `Authorization`);
+ *  - return every HTTP response as a {@see Response}, whatever its status;
+ *  - throw {@see NetworkException} when no response was received, flagging
+ *    `connectionFailure: true` only when the request provably never left
+ *    (DNS failure, refused connection): the SDK then knows a retry is safe.
  */
 interface HttpClientInterface
 {

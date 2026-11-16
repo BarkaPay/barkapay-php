@@ -8,25 +8,53 @@ use PayHub\Exception\SignatureVerificationException;
 use PayHub\Util\Json;
 
 /**
- * Verify the `PayHub-Signature` header on incoming webhooks.
+ * Verify the signature of incoming webhooks.
  *
- * The header is `t=<unix_ts>,v1=<hex>` where `v1 = HMAC-SHA256("{t}.{rawBody}")`
- * keyed with your endpoint secret (`whsec_…`). Always verify against the RAW
+ * Every delivery carries a `Barkapay-Signature` header of the form
+ * `t=<unix_ts>,v1=<hex>` where `v1 = HMAC-SHA256("{t}.{rawBody}")` keyed with
+ * the webhook's signing secret (`whsec_…`). Always verify against the RAW
  * request body — not a re-encoded copy.
+ *
+ * ```php
+ * $event = \PayHub\Webhook::parse(
+ *     file_get_contents('php://input') ?: '',
+ *     $_SERVER['HTTP_BARKAPAY_SIGNATURE'] ?? '',
+ *     $webhookSecret,
+ * );
+ * ```
+ *
+ * The body has no `event` field: derive it from `type` (`payment` |
+ * `transfer`) and `status`. Deliveries are at-least-once — deduplicate on
+ * `event_id`, which is stable across the retries of one delivery.
  */
 final class Webhook
 {
+    /** The header carrying the signature. In `$_SERVER`: `HTTP_BARKAPAY_SIGNATURE`. */
+    public const SIGNATURE_HEADER = 'Barkapay-Signature';
+
+    /**
+     * Name of the same header before 2026-11-15. No longer sent; kept so an
+     * endpoint can read both during a migration (`HTTP_PAYHUB_SIGNATURE`).
+     */
+    public const LEGACY_SIGNATURE_HEADER = 'PayHub-Signature';
+
+    /** Maximum age (and clock skew) of a signature, in seconds. */
     public const DEFAULT_TOLERANCE = 300;
+
+    /** A genuine header is ~80 bytes; anything far larger is not ours. */
+    private const MAX_HEADER_LENGTH = 1024;
 
     /**
      * @param string $payload         the raw request body
-     * @param string $signatureHeader the `PayHub-Signature` header value
-     * @param string $secret          your endpoint signing secret (`whsec_…`)
-     * @param int    $tolerance       max clock skew in seconds (0 disables the check)
+     * @param string $signatureHeader the `Barkapay-Signature` header value
+     * @param string $secret          the webhook signing secret (`whsec_…`)
+     * @param int    $tolerance       maximum age of the signature in seconds. Keep the default: 0 (or less)
+     *                                disables the freshness check and with it the replay protection.
      */
     public static function verify(
         string $payload,
         string $signatureHeader,
+        #[\SensitiveParameter]
         string $secret,
         int $tolerance = self::DEFAULT_TOLERANCE,
     ): bool {
@@ -42,13 +70,21 @@ final class Webhook
     /**
      * Verify and decode the webhook body in one step.
      *
-     * @return array<string, mixed>
+     * @param string $payload         the raw request body
+     * @param string $signatureHeader the `Barkapay-Signature` header value
+     * @param string $secret          the webhook signing secret (`whsec_…`)
+     * @param int    $tolerance       maximum age of the signature in seconds (see {@see verify()})
      *
-     * @throws SignatureVerificationException
+     * @return array<string, mixed> the event: `event_id`, `timestamp`, `type`, `public_id`, `status`, `amount`,
+     *                              `fees`, `order_id`, `reason_code`, …
+     *
+     * @throws SignatureVerificationException when the signature is missing, malformed, stale or wrong,
+     *                                        or the verified body is not a JSON object
      */
     public static function parse(
         string $payload,
         string $signatureHeader,
+        #[\SensitiveParameter]
         string $secret,
         int $tolerance = self::DEFAULT_TOLERANCE,
     ): array {
@@ -56,7 +92,7 @@ final class Webhook
 
         $data = Json::decode($payload);
         if ($data === null) {
-            throw new SignatureVerificationException('Webhook payload is not valid JSON.');
+            throw new SignatureVerificationException('Webhook payload is not a JSON object.');
         }
 
         return $data;
@@ -65,14 +101,25 @@ final class Webhook
     /**
      * @throws SignatureVerificationException
      */
-    private static function assert(string $payload, string $header, string $secret, int $tolerance): void
-    {
-        $parsed = self::parseHeader($header);
-        if ($parsed === null) {
-            throw new SignatureVerificationException('Malformed or missing PayHub-Signature header.');
+    private static function assert(
+        string $payload,
+        string $header,
+        #[\SensitiveParameter]
+        string $secret,
+        int $tolerance,
+    ): void {
+        // An empty key would make the HMAC computable by anyone: fail closed
+        // when the secret was not configured.
+        if (trim($secret) === '') {
+            throw new SignatureVerificationException('The webhook signing secret is empty.');
         }
 
-        [$timestamp, $signature] = $parsed;
+        $parsed = self::parseHeader($header);
+        if ($parsed === null) {
+            throw new SignatureVerificationException('Malformed or missing ' . self::SIGNATURE_HEADER . ' header.');
+        }
+
+        [$timestamp, $signatures] = $parsed;
 
         if ($tolerance > 0 && abs(time() - $timestamp) > $tolerance) {
             throw new SignatureVerificationException('Webhook timestamp is outside the tolerance window.');
@@ -80,36 +127,63 @@ final class Webhook
 
         $expected = hash_hmac('sha256', $timestamp . '.' . $payload, $secret);
 
-        if (!hash_equals($expected, $signature)) {
+        // Check every candidate, without stopping at the first match, so the
+        // time taken does not depend on which one (if any) is valid.
+        $valid = false;
+        foreach ($signatures as $signature) {
+            if (hash_equals($expected, $signature)) {
+                $valid = true;
+            }
+        }
+
+        if (!$valid) {
             throw new SignatureVerificationException('Webhook signature mismatch.');
         }
     }
 
     /**
-     * @return array{0: int, 1: string}|null
+     * Strict parser for `t=<digits>,v1=<64 hex>[,v1=<64 hex>…]`. Several `v1`
+     * entries are accepted (secret rotation); unknown schemes (`v0=…`, a
+     * future `v2=…`) are ignored. Anything else is rejected.
+     *
+     * @return array{0: int, 1: list<string>}|null
      */
     private static function parseHeader(string $header): ?array
     {
+        $header = trim($header);
+        if ($header === '' || \strlen($header) > self::MAX_HEADER_LENGTH) {
+            return null;
+        }
+
         $timestamp = null;
-        $signature = null;
+        $signatures = [];
 
         foreach (explode(',', $header) as $part) {
             $pair = explode('=', trim($part), 2);
             if (\count($pair) !== 2) {
-                continue;
+                return null;
             }
-            [$key, $value] = $pair;
+
+            [$key, $value] = [trim($pair[0]), trim($pair[1])];
+
             if ($key === 't') {
-                $timestamp = $value;
+                // One timestamp only, plain digits (no sign, no exponent).
+                if ($timestamp !== null || preg_match('/^[0-9]{1,12}$/D', $value) !== 1) {
+                    return null;
+                }
+                $timestamp = (int) $value;
             } elseif ($key === 'v1') {
-                $signature = $value;
+                if (preg_match('/^[0-9a-fA-F]{64}$/D', $value) !== 1) {
+                    return null;
+                }
+                $signatures[] = strtolower($value);
             }
         }
 
-        if ($timestamp === null || $signature === null || !ctype_digit($timestamp)) {
+        if ($timestamp === null || $timestamp <= 0 || $signatures === []) {
             return null;
         }
 
-        return [(int) $timestamp, $signature];
+        return [$timestamp, $signatures];
     }
 }

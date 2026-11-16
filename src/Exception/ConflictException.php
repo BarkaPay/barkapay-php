@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace PayHub\Exception;
 
-/** 409 — duplicate / already-exists (e.g. the 60s duplicate-transfer guard). */
+/**
+ * 409 — duplicate: an `order.id` already used with `order.unique: true`, or the
+ * 60-second duplicate-transfer guard. Nothing new was created.
+ */
 final class ConflictException extends ApiException
 {
 }

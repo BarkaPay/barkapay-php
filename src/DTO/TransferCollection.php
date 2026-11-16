@@ -7,6 +7,8 @@ namespace PayHub\DTO;
 use PayHub\Util\Coerce;
 
 /**
+ * One page of transfers.
+ *
  * @implements \IteratorAggregate<int, Transfer>
  */
 final class TransferCollection implements \IteratorAggregate, \Countable
@@ -26,14 +28,10 @@ final class TransferCollection implements \IteratorAggregate, \Countable
     public static function fromEnvelope(array $envelope): self
     {
         $data = Coerce::arr($envelope, 'data') ?? [];
-        $rows = Coerce::arr($data, 'transfers') ?? [];
 
         $items = [];
-        foreach ($rows as $row) {
-            if (\is_array($row)) {
-                /** @var array<string, mixed> $row */
-                $items[] = Transfer::fromArray($row);
-            }
+        foreach (Coerce::rows($data, 'transfers') as $row) {
+            $items[] = Transfer::fromArray($row);
         }
 
         $meta = Coerce::arr($envelope, 'meta');

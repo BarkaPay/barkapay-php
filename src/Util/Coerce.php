@@ -32,8 +32,18 @@ final class Coerce
     }
 
     /**
-     * Amount as returned by the API (whole number for fiat, decimal string for
-     * crypto). Returned as-is to avoid lossy coercion.
+     * @param array<string, mixed> $data
+     */
+    public static function bool(array $data, string $key): ?bool
+    {
+        $value = $data[$key] ?? null;
+
+        return \is_bool($value) ? $value : null;
+    }
+
+    /**
+     * Amount as returned by the API (a JSON number today). Returned as-is —
+     * int, float or decimal string — so the SDK never rounds it.
      *
      * @param array<string, mixed> $data
      */
@@ -45,6 +55,35 @@ final class Coerce
     }
 
     /**
+     * A decimal the API documents as a string (`fees`, balances, link amounts).
+     * Some creation snapshots carry the same value as a bare JSON number; it is
+     * normalised to a string so callers always get one type.
+     *
+     * @param array<string, mixed> $data
+     */
+    public static function decimal(array $data, string $key): ?string
+    {
+        $value = $data[$key] ?? null;
+
+        if (\is_string($value)) {
+            return $value;
+        }
+
+        if (\is_int($value)) {
+            return (string) $value;
+        }
+
+        if (\is_float($value) && is_finite($value)) {
+            // Shortest round-trip form, never scientific notation.
+            $text = rtrim(rtrim(number_format($value, 8, '.', ''), '0'), '.');
+
+            return $text === '' || $text === '-0' ? '0' : $text;
+        }
+
+        return null;
+    }
+
+    /**
      * @param array<string, mixed> $data
      *
      * @return array<string, mixed>|null
@@ -53,6 +92,36 @@ final class Coerce
     {
         $value = $data[$key] ?? null;
 
-        return \is_array($value) ? $value : null;
+        if (!\is_array($value)) {
+            return null;
+        }
+
+        /** @var array<string, mixed> $value */
+        return $value;
+    }
+
+    /**
+     * The rows of a JSON list of objects; anything that is not an object is skipped.
+     *
+     * @param array<string, mixed> $data
+     *
+     * @return list<array<string, mixed>>
+     */
+    public static function rows(array $data, string $key): array
+    {
+        $value = $data[$key] ?? null;
+        if (!\is_array($value)) {
+            return [];
+        }
+
+        $rows = [];
+        foreach ($value as $row) {
+            if (\is_array($row)) {
+                /** @var array<string, mixed> $row */
+                $rows[] = $row;
+            }
+        }
+
+        return $rows;
     }
 }
