@@ -12,6 +12,14 @@ The SDK takes its final name. 2.0 is a pure rename of 1.1.0: same resources, sam
 same retry rules (reads replayed on 429/502/503/504/network errors; writes only on a 429 asking
 for 10 s or less), same behaviour.
 
+### Added
+
+- `payments->create()` documents and forwards the new optional `return_url` and `cancel_url`
+  parameters: where an operator that redirects the payer (WAVE in Sénégal today) sends them
+  back. Only sent when you pass them; the API validates them (absolute `https`, ≤ 2000
+  characters, no credentials, no fragment — 422 `ValidationException` otherwise) and appends
+  `payment_id` / `order_id`, never a status: the return is not a proof of payment.
+
 ### Changed (breaking)
 
 - Composer package `barkapay/payhub-php` → **`barkapay/barkapay-php`**. The old package is

@@ -65,6 +65,29 @@ final class ErrorMappingTest extends TestCase
         }
     }
 
+    public function testInvalidReturnUrlIsReportedPerField(): void
+    {
+        $client = $this->clientReturning(FakeHttpClient::json(422, [
+            'status' => 'failed',
+            'code' => 'validation_error',
+            'message' => 'The return url must be a valid absolute URL using the https scheme.',
+            'errors' => [
+                'return_url' => ['The return url must be a valid absolute URL using the https scheme.'],
+                'cancel_url' => ['The cancel url must not contain a fragment (#…).'],
+            ],
+        ]));
+
+        try {
+            $client->payments->create(['operator' => 'WAVE', 'return_url' => 'http://shop.example', 'cancel_url' => 'https://shop.example/#x']);
+            self::fail('Expected ValidationException.');
+        } catch (ValidationException $e) {
+            self::assertSame(422, $e->getHttpStatus());
+            self::assertSame('validation_error', $e->getErrorCode());
+            self::assertSame(['The return url must be a valid absolute URL using the https scheme.'], $e->getErrors()['return_url'] ?? null);
+            self::assertSame(['The cancel url must not contain a fragment (#…).'], $e->getErrors()['cancel_url'] ?? null);
+        }
+    }
+
     /**
      * Every documented (status, envelope code) pair, as the gateways emit them.
      *

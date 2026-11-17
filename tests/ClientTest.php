@@ -248,6 +248,38 @@ final class ClientTest extends TestCase
         self::assertSame('p1', $payment->publicId);
     }
 
+    public function testCreateSendsReturnAndCancelUrlsWhenGiven(): void
+    {
+        $http = new FakeHttpClient([FakeHttpClient::ok(['payment' => ['public_id' => 'p1', 'status' => 'PROCESSING_OPERATOR']], 202)]);
+
+        $this->client($http, 'sn')->payments->create([
+            'operator' => 'WAVE',
+            'phone_number' => '771234567',
+            'amount' => 1000,
+            'order' => ['id' => 'O1'],
+            'return_url' => 'https://shop.example/merci?cart=42',
+            'cancel_url' => 'https://shop.example/panier',
+        ]);
+
+        $body = $http->lastJson();
+        self::assertIsArray($body);
+        self::assertSame('https://hub.barkapay.com/sn/v1/payments', $http->last()->url);
+        self::assertSame('https://shop.example/merci?cart=42', $body['return_url']);
+        self::assertSame('https://shop.example/panier', $body['cancel_url']);
+    }
+
+    public function testCreateOmitsReturnAndCancelUrlsWhenNotGiven(): void
+    {
+        $http = new FakeHttpClient([FakeHttpClient::ok(['payment' => ['public_id' => 'p1', 'status' => 'SUCCESSFUL']])]);
+
+        $this->client($http)->payments->create(['operator' => 'ORANGE', 'phone_number' => '74123456', 'amount' => 100, 'otp' => '123456', 'order' => ['id' => 'O1']]);
+
+        $body = $http->lastJson();
+        self::assertIsArray($body);
+        self::assertArrayNotHasKey('return_url', $body);
+        self::assertArrayNotHasKey('cancel_url', $body);
+    }
+
     public function testTransfersCreateListAndGet(): void
     {
         $http = new FakeHttpClient([
