@@ -118,6 +118,33 @@ foreach ($page as $payment) {
 - A status this SDK version does not know yet gives `$payment->status === null`;
   `$payment->rawStatus` always holds the string the API sent.
 
+### Sending the payer back to your site
+
+With an operator that redirects the payer (WAVE in Sénégal today), pass `return_url` and,
+optionally, `cancel_url` to choose where the payer lands afterwards. Other operators accept and
+ignore them.
+
+```php
+$payment = $barkapay->payments->create([
+    'operator'     => 'WAVE',
+    'phone_number' => '771234567',
+    'amount'       => 5000,
+    'order'        => ['id' => 'ORDER-2026-003'],
+    'return_url'   => 'https://shop.example/thanks?cart=42', // after the payment
+    'cancel_url'   => 'https://shop.example/cart',           // after a failure or cancellation
+], 'sn');
+```
+
+- Absolute `https` URLs only, at most 2000 characters, no `user:pass@`, no `#fragment`: the API
+  answers 422 otherwise (`ValidationException`, details in `getErrors()['return_url']`).
+- Leave them out to use the URLs set on your API application, or a barkapay page by default.
+  Without `cancel_url`, a failed or cancelled payment goes back to `return_url`.
+- The API appends `payment_id` and `order_id` to your URL (your query string is kept), never a
+  status. Neither field is returned on the payment.
+
+> **The payer coming back is not a proof of payment.** Anyone can open that URL. Fulfil the order
+> on the webhook, or after `$barkapay->payments->get($paymentId)` says `SUCCESSFUL`.
+
 ## Payment links
 
 A payment link is a durable URL on the barkapay-hosted checkout: your customer opens it, picks

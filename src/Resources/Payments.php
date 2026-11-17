@@ -32,6 +32,18 @@ final class Payments
      * string entries echoed back as `orderData`), and `otp` — a STRING, leading
      * zeros matter — for operators that take the code up-front.
      *
+     * Optional `return_url` and `cancel_url`: where to send the payer back
+     * after an operator that redirects them (WAVE in Senegal today; other
+     * operators accept and ignore them). Absolute `https` URLs, at most 2000
+     * characters, without credentials or `#fragment` — the API answers 422
+     * ({@see \BarkaPay\Exception\ValidationException}, `getErrors()['return_url']`)
+     * otherwise. Leave them out to fall back on the URLs set on your API
+     * application, then on a barkapay page. `cancel_url` is used after a
+     * failure or cancellation (`return_url` when absent). The API appends
+     * `payment_id` and `order_id` to the query string, never a status: the
+     * payer coming back is NOT a proof of payment — wait for the webhook or
+     * call `get()`. Neither field is echoed back on the payment.
+     *
      * What happens next depends on the operator — branch on the returned status:
      *  - `SUCCESSFUL`: settled in this very response (ORANGE);
      *  - `AWAITING_OTP`: call {@see confirmOtp()} with the code the payer received (MOOV, `bf`);
