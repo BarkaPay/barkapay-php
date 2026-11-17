@@ -5,7 +5,7 @@
 Please **do not** open a public issue for security vulnerabilities.
 
 - Preferred: GitHub's [private vulnerability reporting](https://github.com/BarkaPay/barkapay-php/security/advisories/new).
-- Or email **security@payhub.africa** with the details and reproduction steps.
+- Or email **developers@barkapay.com** with the details and reproduction steps.
 
 We aim to acknowledge reports within 72 hours, and to ship a fix or a mitigation for confirmed
 issues as a patch release of the latest minor version.
